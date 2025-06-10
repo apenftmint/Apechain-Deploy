@@ -23,7 +23,7 @@ const NftAdvertisementPoster: React.FC<NftAdvertisementPosterProps> = ({ adList 
         setCurrentAdIndex((prevIndex) => (prevIndex + 1) % activeAds.length);
         setIsFading(false);
       }, 500); 
-    }, 20000); // Changed to 20 seconds
+    }, 20000); 
 
     return () => clearInterval(slideshowInterval);
   }, [activeAds.length]);
@@ -77,7 +77,7 @@ const NftAdvertisementPoster: React.FC<NftAdvertisementPosterProps> = ({ adList 
           src={displayImageUrl} 
           alt={`${currentAd.name} NFT Image`}
           className="nft-ad-image w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-xl object-cover border-2 border-white/40 shadow-lg transition-all duration-300 ease-out" 
-          onError={(e) => { (e.target as HTMLImageElement).src = `https://picsum.photos/seed/error${currentAd.id}/200`; }} // Fallback for broken user-provided URLs
+          onError={(e) => { (e.target as HTMLImageElement).src = `https://picsum.photos/seed/error${currentAd.id}/200`; }} 
         />
       </div>
       <div className="text-center sm:text-left flex-grow mx-1 sm:mx-2 overflow-hidden relative">
@@ -98,7 +98,7 @@ const NftAdvertisementPoster: React.FC<NftAdvertisementPosterProps> = ({ adList 
       </div>
       <div className="flex-shrink-0 mt-2 sm:mt-0 sm:ml-2 md:ml-4">
         <a
-          href={currentAd.mintLink || '#'} // Fallback to '#' if mintLink is empty
+          href={currentAd.mintLink || '#'} 
           target="_blank"
           rel="noopener noreferrer"
           className={`nft-ad-button inline-block px-3 py-1.5 sm:px-5 sm:py-2 text-xs sm:text-sm font-bold text-white ${selectedTheme.buttonBg} rounded-lg shadow-md hover:shadow-xl ${selectedTheme.shadow} transition-all duration-300 ease-out transform hover:-translate-y-0.5`}
@@ -112,4 +112,3 @@ const NftAdvertisementPoster: React.FC<NftAdvertisementPosterProps> = ({ adList 
 };
 
 export default NftAdvertisementPoster;
-    

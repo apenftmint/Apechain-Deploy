@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from 'react';
 import { PopupMintData } from '../App'; 
 import { APECHAIN_EXPLORER_URL, APECHAIN_MAGICKEDEN_COLLECTION_URL_PREFIX } from '../constants';
-// import { formatUnits } from 'ethers'; // Not needed as popups are for free mints
 import ConfettiEffect from './ConfettiEffect';
 
 interface NewMintPopupProps {
@@ -20,10 +19,7 @@ const NewMintPopup: React.FC<NewMintPopupProps> = ({ mint, onClose }) => {
     
     const visibilityTimer = setTimeout(() => {
       handleClose(); 
-    }, 60000); // Popup is visible for 60 seconds
-
-    // ConfettiEffect's animation is set to ~55-60s, so it will naturally stop.
-    // Parent unmount or CSS animation 'forwards' handles cleanup.
+    }, 60000); 
 
     return () => {
         clearTimeout(visibilityTimer);
@@ -33,8 +29,7 @@ const NewMintPopup: React.FC<NewMintPopupProps> = ({ mint, onClose }) => {
 
   const handleClose = () => {
     setIsVisible(false); 
-    // Parent will remove from DOM after animation (triggered by onClose after timeout)
-    setTimeout(onClose, 500); // Allow time for CSS exit animation (duration-500)
+    setTimeout(onClose, 500); 
   };
   
   const collectionDisplayName = (mint.analysis?.collectionNameFromAnalyzer && mint.analysis.collectionNameFromAnalyzer !== "Unknown Collection" && mint.analysis.collectionNameFromAnalyzer !== "Unnamed Collection")
@@ -46,7 +41,7 @@ const NewMintPopup: React.FC<NewMintPopupProps> = ({ mint, onClose }) => {
 
   return (
     <div 
-      className={`fixed top-5 right-5 z-[100] transition-all duration-500 transform ${isVisible ? 'popup-top-right-enter-active' : 'popup-top-right-exit-active'}`} // Using defined exit animation class
+      className={`fixed top-5 right-5 z-[100] transition-all duration-500 transform ${isVisible ? 'popup-top-right-enter-active' : 'popup-top-right-exit-active'}`} 
       role="alert"
       aria-live="assertive"
       style={{ opacity: isVisible ? 1 : 0 }} 

@@ -6,15 +6,15 @@ import {
     NftAdDetails,
     MAX_ADMIN_EDITABLE_ADS,
     USE_PLACEHOLDER_IMAGE_URL,
-    SETTINGS_API_ENDPOINT,
-    VALID_ACCENT_COLORS
+    SETTINGS_API_ENDPOINT, // Used for saving
+    VALID_ACCENT_COLORS // Used for validation
 } from '../../constants';
 import { AdminSettings } from '../../App'; 
-import LoadingSpinner from '../LoadingSpinner'; // For saving indicator
+import LoadingSpinner from '../LoadingSpinner'; 
 
 interface AdminPanelProps {
   onLogout: () => void;
-  onSettingsSave: () => void; // Called after successful save attempt to trigger reload in App.tsx
+  onSettingsSave: () => void; 
   currentAds: NftAdDetails[]; 
   currentTwitterId: string;   
 }
@@ -33,39 +33,38 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
 
     for (let index = 0; index < MAX_ADMIN_EDITABLE_ADS; index++) {
         const slotId = `ad_slot_${index + 1}`;
-        const configFromCurrentAds = currentAds.find(ad => ad.id === slotId);
-        const configFromDefaults = DEFAULT_NFT_ADVERTISEMENTS_LIST.find(dAd => dAd.id === slotId);
+        // Prioritize currentAds (fetched from backend or defaults if fetch failed)
+        const configFromCurrentEffectiveAds = currentAds.find(ad => ad.id === slotId);
+        // Fallback to coded defaults if no matching ad found in currentAds
+        const configFromCodedDefaults = DEFAULT_NFT_ADVERTISEMENTS_LIST.find(dAd => dAd.id === slotId);
 
         let adData: NftAdDetails;
 
-        if (configFromCurrentAds) {
-            // Validate accentColor from currentAds, though it should be correct if currentAds is NftAdDetails[]
-            // The 'as any' is to help 'includes' with the union type; VALID_ACCENT_COLORS contains the valid literals.
-            const validatedAccentColor = VALID_ACCENT_COLORS.includes(configFromCurrentAds.accentColor as any)
-                ? configFromCurrentAds.accentColor
-                : (configFromDefaults ? configFromDefaults.accentColor : 'sky');
+        if (configFromCurrentEffectiveAds) {
+            const validatedAccentColor = VALID_ACCENT_COLORS.includes(configFromCurrentEffectiveAds.accentColor as any)
+                ? configFromCurrentEffectiveAds.accentColor
+                : (configFromCodedDefaults ? configFromCodedDefaults.accentColor : 'sky');
             
             adData = {
-                ...configFromCurrentAds,
-                id: slotId, // Ensure the ID is the slot's ID.
+                ...configFromCurrentEffectiveAds, // Spread all properties
+                id: slotId, // Ensure the ID is always the slot's ID
                 accentColor: validatedAccentColor,
             };
-        } else if (configFromDefaults) {
-            // accentColor from defaults is already typed correctly
+        } else if (configFromCodedDefaults) {
             adData = { 
-                ...configFromDefaults,
-                id: slotId // Ensure the ID is the slot's ID.
+                ...configFromCodedDefaults,
+                id: slotId 
             };
         } else {
-            // Fallback if no current ad and no default ad for this slot ID
+            // Absolute fallback if somehow no default exists for the slot ID
             adData = {
                 id: slotId,
-                name: `Ad Slot ${index + 1} (New)`,
-                supply: "Supply: ---",
-                price: "Price: ---",
+                name: `Ad Slot ${index + 1}`,
+                supply: "N/A",
+                price: "N/A",
                 imageUrl: USE_PLACEHOLDER_IMAGE_URL,
                 mintLink: "#",
-                accentColor: 'sky', // Default valid accent color
+                accentColor: 'sky', 
                 active: false,
             };
         }
@@ -81,13 +80,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
     setAds(adSlotsToSet);
     setImagePreviews(newImagePreviews);
 
-  }, [currentAds]);
+  }, [currentAds]); // Depend on currentAds passed from App.tsx
 
 
   useEffect(() => {
     setTwitterUserId(currentTwitterId);
     initializeAds();
-  }, [currentTwitterId, initializeAds]);
+  }, [currentTwitterId, initializeAds]); // initializeAds is now stable due to useCallback
 
   const handleImageFileChange = (index: number, file: File | null) => {
     const adId = ads[index].id;
@@ -104,30 +103,30 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
             setImagePreviews(prev => ({ ...prev, [adId]: null }));
         };
         reader.readAsDataURL(file);
-    } else { // File cleared
-        handleAdChange(index, 'imageUrl', USE_PLACEHOLDER_IMAGE_URL); // Or "" for user to input URL
+    } else { 
+        handleAdChange(index, 'imageUrl', USE_PLACEHOLDER_IMAGE_URL); 
         setImagePreviews(prev => ({ ...prev, [adId]: null }));
     }
   };
 
   const handleAdChange = (index: number, field: keyof NftAdDetails, value: any) => {
     const newAds = [...ads];
+    let newAd = { ...newAds[index] };
+
     if (field === 'active') {
-        newAds[index] = { ...newAds[index], [field]: value as boolean };
+        newAd[field] = value as boolean;
     } else if (field === 'accentColor') {
-         // Ensure the value is a valid accent color before setting
         if (VALID_ACCENT_COLORS.includes(value as any)) {
-            newAds[index] = { ...newAds[index], [field]: value as NftAdDetails['accentColor'] };
+            newAd[field] = value as NftAdDetails['accentColor'];
         } else {
-            // Optionally handle invalid value, e.g., revert or set to default
-            console.warn(`Invalid accent color "${value}" provided for ad slot ${index + 1}. Using default.`);
-            newAds[index] = { ...newAds[index], [field]: 'sky' }; // Default to 'sky' or existing
+            newAd[field] = 'sky'; 
         }
+    } else {
+        newAd[field] = value as string;
     }
-     else {
-        newAds[index] = { ...newAds[index], [field]: value as string };
-    }
-    // If imageUrl is manually changed to something not a data URL, clear preview
+    
+    newAds[index] = newAd;
+
     if (field === 'imageUrl' && typeof value === 'string' && !value.startsWith('data:image')) {
         setImagePreviews(prev => ({ ...prev, [newAds[index].id]: null }));
     }
@@ -142,17 +141,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
       ads: ads.map(ad => ({...ad})) 
     };
     try {
-        const response = await fetch(SETTINGS_API_ENDPOINT, {
+        const response = await fetch(SETTINGS_API_ENDPOINT, { // Using constant
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(settingsToSave),
         });
         if (!response.ok) {
             const errorData = await response.text();
-            throw new Error(`Failed to save settings: ${response.status} ${response.statusText}. ${errorData}`);
+            throw new Error(`Failed to save settings: ${response.status} ${response.statusText}. ${errorData.substring(0,200)}`);
         }
-        // const responseData = await response.json(); // If backend sends a confirmation
-        onSettingsSave(); // Notify App.tsx to reload settings from backend
+        onSettingsSave(); 
     } catch (e: any) {
         console.error("Error saving admin settings:", e);
         setSaveError(`Failed to save settings: ${e.message}. Please try again.`);
@@ -160,8 +158,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
         setIsSaving(false);
     }
   };
-
-  const accentColorsForSelect: NftAdDetails['accentColor'][] = ['sky', 'fuchsia', 'emerald', 'amber', 'rose'];
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 md:p-8 my-8 bg-slate-800/70 rounded-xl shadow-2xl border border-slate-700 backdrop-blur-sm text-slate-100">
@@ -175,7 +171,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
         </button>
       </div>
        <p className="text-xs text-yellow-400 mb-6 p-3 bg-yellow-900/50 rounded-md border border-yellow-700">
-        <span className="font-bold">NOTE:</span> Settings are now sent to a (hypothetical) backend. If no backend is running, saving will fail.
+        <span className="font-bold">NOTE:</span> Settings are sent to Netlify Functions (backend). If functions are not deployed or misconfigured, saving will fail.
       </p>
 
       <section className="mb-8">
@@ -229,16 +225,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
                     {imagePreviews[ad.id] && (
                         <img src={imagePreviews[ad.id]!} alt="Ad preview" className="mt-2 h-16 w-16 object-cover rounded-md border border-slate-500" />
                     )}
-                    <p className="text-xs text-yellow-500 mt-1">Uploads are stored as Data URLs in settings. Large images may impact performance/storage.</p>
+                    <p className="text-xs text-yellow-500 mt-1">Uploads are stored as Data URLs. Large images may impact performance/storage.</p>
                 </div>
                  <div>
                   <label htmlFor={`adImageUrl-${index}`} className="text-xs text-slate-400">Image URL (if not uploading, or "{USE_PLACEHOLDER_IMAGE_URL}")</label>
                   <input 
                     type="text" 
                     id={`adImageUrl-${index}`} 
-                    value={ad.imageUrl.startsWith('data:image') ? '(Uploaded Image Data)' : ad.imageUrl} // Show placeholder if data URL
+                    value={ad.imageUrl.startsWith('data:image') ? '(Uploaded Image Data)' : ad.imageUrl} 
                     onChange={e => handleAdChange(index, 'imageUrl', e.target.value)} 
-                    disabled={ad.imageUrl.startsWith('data:image')} // Disable if image uploaded
+                    disabled={ad.imageUrl.startsWith('data:image')} 
                     className="w-full mt-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm text-white placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 disabled:bg-slate-600" 
                   />
                 </div>
@@ -250,7 +246,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
                  <div>
                   <label htmlFor={`adAccent-${index}`} className="text-xs text-slate-400">Accent Color</label>
                   <select id={`adAccent-${index}`} value={ad.accentColor} onChange={e => handleAdChange(index, 'accentColor', e.target.value as NftAdDetails['accentColor'])} className="w-full mt-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-sky-500 focus:border-sky-500">
-                    {accentColorsForSelect.map(color => <option key={color} value={color}>{color.charAt(0).toUpperCase() + color.slice(1)}</option>)}
+                    {VALID_ACCENT_COLORS.map(color => <option key={color} value={color}>{color.charAt(0).toUpperCase() + color.slice(1)}</option>)}
                   </select>
                 </div>
                 <div className="flex items-center pt-2">
