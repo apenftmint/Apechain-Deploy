@@ -192,8 +192,8 @@ export const CONFIG_LOGIN_PAGE_ID = 'config_login';
 export const CONFIG_PANEL_PAGE_ID = 'config_panel';
 
 // --- API Endpoints (Hypothetical Backend) ---
-// For Netlify, serverless functions are typically accessed via /.netlify/functions/
-export const API_BASE_URL = '/.netlify/functions'; // Updated for Netlify Functions
+// Changed from /.netlify/functions to /api for generic backend.
+export const API_BASE_URL = '/api'; 
 export const SETTINGS_API_ENDPOINT = `${API_BASE_URL}/settings`;
 export const SEEN_POPUPS_API_ENDPOINT = `${API_BASE_URL}/seen-popups`;
 export const MARK_POPUP_SEEN_API_ENDPOINT = `${API_BASE_URL}/mark-popup-seen`;
