@@ -23,6 +23,9 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
       return;
     }
 
+    // WARNING: This is a mock login for demonstration purposes ONLY.
+    // Storing and comparing plaintext passwords on the client-side is highly insecure.
+    // Real applications MUST use a secure backend for authentication.
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
         localStorage.setItem(ADMIN_SESSION_KEY, 'true');
         onLoginSuccess();

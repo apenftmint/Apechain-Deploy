@@ -183,11 +183,12 @@ export class CollectionAnalyzerService {
       }
       const json = await response.json();
       if (typeof json === 'object' && json !== null) {
+        // Basic check for essential metadata fields
         if (json.name || json.image || json.description) {
             return { metadata: json as TokenMetadata, status: 'ok' };
         } else {
             console.warn(`Metadata from ${httpUri} is valid JSON but lacks common fields (name, image, description).`);
-            return { metadata: json as TokenMetadata, status: 'invalid_json' }; 
+            return { metadata: json as TokenMetadata, status: 'invalid_json' }; // Technically valid JSON but poor metadata
         }
       } else {
         return { metadata: null, status: 'invalid_json' };
@@ -245,7 +246,7 @@ export class CollectionAnalyzerService {
     representativeTokenId: string
   ): Promise<CollectionAnalysisResult> {
     const statusReasons: string[] = [];
-    let finalStatus: FinalCollectionStatus = 'OK'; 
+    let finalStatus: FinalCollectionStatus = 'OK'; // Assume OK initially
 
     const tokenUri = await this.fetchTokenURI(contractAddress, representativeTokenId);
     let metadataFetchResult: { metadata: TokenMetadata | null; status: MetadataStatus } = { metadata: null, status: 'not_fetched' };

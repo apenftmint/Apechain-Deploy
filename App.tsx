@@ -13,35 +13,36 @@ import NewMintPopup from './components/NewMintPopup';
 import LiveVisitorsCounter from './components/LiveVisitorsCounter';
 import AdminLogin from './components/admin/AdminLogin';
 import AdminPanel from './components/admin/AdminPanel';
-import './index.css';
 import { 
-  MAX_DISPLAY_MINTS, 
-  APP_TITLE, 
-  LOCAL_STORAGE_KEY,
-  PUBLIC_APECHAIN_HTTP_RPC_URLS, 
-  ANALYSIS_CACHE_DURATION_MS,
-  ANALYSIS_RESULTS_CACHE_KEY, 
-  TABLE_DATA_CACHE_KEY, 
-  APE_COIN_DECIMALS,
-  LIVE_FREE_MINTS_CACHE_KEY,
-  LIVE_PAID_MINTS_CACHE_KEY,
-  ADVERTISEMENT_TEXT,
-  DEFAULT_ADVERTISEMENT_TWITTER_USER_ID,
-  ADVERTISEMENT_TWITTER_DM_URL_BASE,
-  DEFAULT_NFT_ADVERTISEMENTS_LIST,
-  NftAdDetails,
-  calculateBodyPaddingTop,
-  MAX_DISPLAY_MINTS_FOR_LIVE_FEED,
-  INITIAL_TABLE_COLLECTIONS_TO_PROCESS,
-  ADMIN_SESSION_KEY,
-  PAGE_QUERY_PARAM,
-  CONFIG_LOGIN_PAGE_ID,
-  CONFIG_PANEL_PAGE_ID,
-  SETTINGS_API_ENDPOINT,
-  SEEN_POPUPS_API_ENDPOINT,
-  MARK_POPUP_SEEN_API_ENDPOINT,
-  VALID_ACCENT_COLORS,
-  USE_PLACEHOLDER_IMAGE_URL
+    MAX_DISPLAY_MINTS, 
+    APP_TITLE, 
+    LOCAL_STORAGE_KEY,
+    PUBLIC_APECHAIN_HTTP_RPC_URLS, 
+    ANALYSIS_CACHE_DURATION_MS,
+    ANALYSIS_RESULTS_CACHE_KEY, 
+    TABLE_DATA_CACHE_KEY, 
+    // PLAYED_SOUNDS_FOR_CONTRACTS_CACHE_KEY, // Replaced by backend
+    APE_COIN_DECIMALS,
+    LIVE_FREE_MINTS_CACHE_KEY,
+    LIVE_PAID_MINTS_CACHE_KEY,
+    ADVERTISEMENT_TEXT,
+    DEFAULT_ADVERTISEMENT_TWITTER_USER_ID,
+    ADVERTISEMENT_TWITTER_DM_URL_BASE,
+    DEFAULT_NFT_ADVERTISEMENTS_LIST,
+    NftAdDetails,
+    calculateBodyPaddingTop,
+    MAX_DISPLAY_MINTS_FOR_LIVE_FEED,
+    INITIAL_TABLE_COLLECTIONS_TO_PROCESS,
+    // ADMIN_SETTINGS_LOCAL_STORAGE_KEY, // Replaced by backend
+    ADMIN_SESSION_KEY,
+    PAGE_QUERY_PARAM,
+    CONFIG_LOGIN_PAGE_ID,
+    CONFIG_PANEL_PAGE_ID,
+    SETTINGS_API_ENDPOINT,
+    SEEN_POPUPS_API_ENDPOINT,
+    MARK_POPUP_SEEN_API_ENDPOINT,
+    VALID_ACCENT_COLORS,
+    USE_PLACEHOLDER_IMAGE_URL
 } from './constants';
 
 export interface AppTableDisplayMintData extends MintData { 
@@ -93,40 +94,42 @@ const App: React.FC = () => {
   const firstDataLoadCompleteRef = useRef(false); 
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const speechTimeoutRef = useRef<number | null>(null);
-  const playedNotificationForContractsRef = useRef(new Set<string>()); 
+  const playedNotificationForContractsRef = useRef(new Set<string>()); // Now managed by backend fetched state + local additions
 
   const collectionAnalyzerRef = useRef<CollectionAnalyzerService | null>(null);
   const analysisCacheRef = useRef<Map<string, { result: CollectionAnalysisResult; timestamp: number; tokenIdsHash: string }>>(new Map());
   const [analysisStatusMap, setAnalysisStatusMap] = useState<Map<string, 'pending' | 'analyzing' | 'done' | 'error'>>(new Map());
 
+  // Config page and dynamic settings state
   const [currentRoute, setCurrentRoute] = useState<string>(window.location.hash || '#/');
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
   
+  // State for settings fetched from backend
   const [effectiveTwitterId, setEffectiveTwitterId] = useState<string>(DEFAULT_ADVERTISEMENT_TWITTER_USER_ID);
   const [effectiveAds, setEffectiveAds] = useState<NftAdDetails[]>(DEFAULT_NFT_ADVERTISEMENTS_LIST);
   const [isAdminSettingsLoading, setIsAdminSettingsLoading] = useState<boolean>(true);
   const [adminSettingsError, setAdminSettingsError] = useState<string | null>(null);
 
+  // State for seen popups fetched from backend
   const [isSeenPopupsLoading, setIsSeenPopupsLoading] = useState<boolean>(true);
   const [seenPopupsError, setSeenPopupsError] = useState<string | null>(null);
 
 
   const loadAdminSettings = useCallback(async (isRetry = false) => {
-    if (!isRetry) { 
+    if (!isRetry) { // Only set loading on initial try, not on retries from panel save
         setIsAdminSettingsLoading(true);
         setAdminSettingsError(null);
     }
     try {
         const response = await fetch(SETTINGS_API_ENDPOINT);
         if (!response.ok) {
-            const errorText = await response.text();
-            console.warn(`Admin settings API error: ${response.status} ${response.statusText}`, errorText);
-            if (response.status === 404) { 
+            if (response.status === 404) { // Assume 404 means no settings saved yet, use defaults
+                console.warn("Admin settings not found (404), using defaults.");
                 setEffectiveTwitterId(DEFAULT_ADVERTISEMENT_TWITTER_USER_ID);
                 setEffectiveAds(DEFAULT_NFT_ADVERTISEMENTS_LIST);
-                // No error displayed to user for 404, just use defaults
             } else {
-                 throw new Error(`Failed to fetch admin settings: ${response.status} ${response.statusText}. Response: ${errorText.substring(0,200)}`);
+                 const errorText = await response.text(); // Attempt to get more info from error
+                throw new Error(`Failed to fetch admin settings: ${response.status} ${response.statusText}. Response: ${errorText.substring(0,200)}`);
             }
         } else {
             const adminSettings: Partial<AdminSettings> = await response.json();
@@ -136,22 +139,25 @@ const App: React.FC = () => {
                 const sanitizedAds: NftAdDetails[] = adminSettings.ads.map((adFromBackend, index): NftAdDetails => {
                     const defaultAdForSlot = DEFAULT_NFT_ADVERTISEMENTS_LIST.find(
                         dAd => dAd.id === (adFromBackend.id || `ad_slot_${index + 1}`)
-                    ) || DEFAULT_NFT_ADVERTISEMENTS_LIST[0] || {} as NftAdDetails;
+                    ) || DEFAULT_NFT_ADVERTISEMENTS_LIST[0] || { // Ultimate fallback if defaults are empty
+                        id: `default_ad_slot_${index + 1}`, name: 'Default Ad', supply: '', price: '', 
+                        imageUrl: USE_PLACEHOLDER_IMAGE_URL, mintLink: '#', accentColor: 'sky', active: false
+                    };
 
-                    let validatedAccentColor = defaultAdForSlot.accentColor || 'sky';
+                    let validatedAccentColor = defaultAdForSlot.accentColor;
                     if (adFromBackend.accentColor && VALID_ACCENT_COLORS.includes(adFromBackend.accentColor as any)) {
                         validatedAccentColor = adFromBackend.accentColor as NftAdDetails['accentColor'];
                     }
 
                     return {
-                        id: adFromBackend.id || defaultAdForSlot.id || `admin_ad_slot_${index}`, 
-                        name: adFromBackend.name || defaultAdForSlot.name || 'Untitled Ad',
-                        supply: adFromBackend.supply || defaultAdForSlot.supply || 'N/A',
-                        price: adFromBackend.price || defaultAdForSlot.price || 'N/A',
-                        imageUrl: adFromBackend.imageUrl || defaultAdForSlot.imageUrl || USE_PLACEHOLDER_IMAGE_URL,
-                        mintLink: adFromBackend.mintLink || defaultAdForSlot.mintLink || '#',
+                        id: adFromBackend.id || `admin_ad_slot_${index}`, // Ensure ID
+                        name: adFromBackend.name || defaultAdForSlot.name,
+                        supply: adFromBackend.supply || defaultAdForSlot.supply,
+                        price: adFromBackend.price || defaultAdForSlot.price,
+                        imageUrl: adFromBackend.imageUrl || defaultAdForSlot.imageUrl,
+                        mintLink: adFromBackend.mintLink || defaultAdForSlot.mintLink,
                         accentColor: validatedAccentColor,
-                        active: typeof adFromBackend.active === 'boolean' ? adFromBackend.active : (defaultAdForSlot.active !== undefined ? defaultAdForSlot.active : true),
+                        active: typeof adFromBackend.active === 'boolean' ? adFromBackend.active : defaultAdForSlot.active,
                     };
                 });
                 setEffectiveAds(sanitizedAds);
@@ -160,9 +166,9 @@ const App: React.FC = () => {
             }
         }
     } catch (e: any) {
-        console.error("Failed to fetch or parse admin settings:", e.message);
-        setAdminSettingsError(`Could not load site configuration: ${e.message.substring(0,150)}. Using defaults.`);
-        setEffectiveTwitterId(DEFAULT_ADVERTISEMENT_TWITTER_USER_ID); 
+        console.error("Failed to fetch admin settings:", e.message);
+        setAdminSettingsError(`Could not load site configuration: ${e.message.split('.')[0]}. Using defaults.`);
+        setEffectiveTwitterId(DEFAULT_ADVERTISEMENT_TWITTER_USER_ID); // Fallback to defaults
         setEffectiveAds(DEFAULT_NFT_ADVERTISEMENTS_LIST);
     } finally {
         if (!isRetry) setIsAdminSettingsLoading(false);
@@ -175,11 +181,11 @@ const App: React.FC = () => {
     try {
         const response = await fetch(SEEN_POPUPS_API_ENDPOINT);
         if (!response.ok) {
-            const errorText = await response.text();
-            console.warn(`Seen popups API error: ${response.status} ${response.statusText}`, errorText);
-            if (response.status === 404) { 
+            if (response.status === 404) { // Assume 404 means no seen popups yet
+                console.warn("Seen popups list not found (404), starting fresh.");
                 playedNotificationForContractsRef.current = new Set<string>();
             } else {
+                const errorText = await response.text();
                 throw new Error(`Failed to fetch seen popups: ${response.status} ${response.statusText}. Response: ${errorText.substring(0,200)}`);
             }
         } else {
@@ -187,14 +193,15 @@ const App: React.FC = () => {
             playedNotificationForContractsRef.current = new Set(seenContracts);
         }
     } catch (e: any) {
-        console.error("Failed to fetch or parse seen popups:", e.message);
-        setSeenPopupsError(`Could not load popup history: ${e.message.substring(0,150)}. Popups may re-appear.`);
-        playedNotificationForContractsRef.current = new Set<string>(); 
+        console.error("Failed to fetch seen popups:", e.message);
+        setSeenPopupsError(`Could not load popup history: ${e.message.split('.')[0]}. Popups may re-appear.`);
+        playedNotificationForContractsRef.current = new Set<string>(); // Fallback
     } finally {
         setIsSeenPopupsLoading(false);
     }
   }, []);
 
+  // Effect for initial setup, hash listener, and loading global data
   useEffect(() => {
     const initialHash = window.location.hash || '#/';
     setCurrentRoute(initialHash); 
@@ -213,6 +220,7 @@ const App: React.FC = () => {
     };
   }, [loadAdminSettings, loadSeenPopups]); 
 
+  // Effect for handling redirects and layout AFTER state updates
   useEffect(() => {
     const pageId = getPageFromHash(currentRoute);
     let newHashTarget: string | null = null;
@@ -423,7 +431,7 @@ const App: React.FC = () => {
 
  useEffect(() => {
     if (isInitialLoadRef.current && firstDataLoadCompleteRef.current) isInitialLoadRef.current = false; 
-    if (!firstDataLoadCompleteRef.current || isInitialLoadRef.current || isSeenPopupsLoading) { 
+    if (!firstDataLoadCompleteRef.current || isInitialLoadRef.current || isSeenPopupsLoading) { // Also wait for seen popups to load
         if (!userInteracted && speechSynthesis.speaking) speechSynthesis.cancel(); 
         if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
         return;
@@ -447,6 +455,7 @@ const App: React.FC = () => {
                 notificationProcessed = true; 
             }
             playedNotificationForContractsRef.current.add(mint.contractAddress);
+            // Notify backend that this popup has been "seen"
             fetch(MARK_POPUP_SEEN_API_ENDPOINT, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -488,7 +497,7 @@ const App: React.FC = () => {
   
   const handleAdminLoginSuccess = () => {
     setIsAdminLoggedIn(true);
-    loadAdminSettings(true); 
+    loadAdminSettings(true); // Pass true to indicate it's a settings refresh, not initial load
     if (getPageFromHash(window.location.hash) === CONFIG_LOGIN_PAGE_ID) {
       window.location.hash = `#/?${PAGE_QUERY_PARAM}=${CONFIG_PANEL_PAGE_ID}`;
     } else {
@@ -499,7 +508,7 @@ const App: React.FC = () => {
   const handleAdminLogout = () => {
     localStorage.removeItem(ADMIN_SESSION_KEY);
     setIsAdminLoggedIn(false);
-    loadAdminSettings(true); 
+    loadAdminSettings(true); // Reload settings to defaults or new backend state
     if (getPageFromHash(window.location.hash) === CONFIG_PANEL_PAGE_ID) {
       window.location.hash = `#/?${PAGE_QUERY_PARAM}=${CONFIG_LOGIN_PAGE_ID}`;
     } else {
@@ -508,6 +517,7 @@ const App: React.FC = () => {
   };
   
   const handleAdminSettingsSave = () => {
+    // AdminPanel now handles the POST to backend. App.tsx just reloads.
     loadAdminSettings(true); 
     alert("Admin settings save attempt sent to server! Changes will be reflected if successful.");
   }
@@ -675,8 +685,8 @@ const App: React.FC = () => {
       contentToRender = <AdminPanel 
                           onLogout={handleAdminLogout} 
                           onSettingsSave={handleAdminSettingsSave}
-                          currentAds={effectiveAds} 
-                          currentTwitterId={effectiveTwitterId} 
+                          currentAds={effectiveAds} // Pass fetched/default ads
+                          currentTwitterId={effectiveTwitterId} // Pass fetched/default twitterId
                         />;
     } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
       contentToRender = showRedirectingMessage();

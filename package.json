@@ -1,38 +1,24 @@
 {
-  "name": "apechain-nft-minter",
-  "private": true,
+  "name": "apechain-live-mints-viewer",
   "version": "1.0.0",
-  "type": "module",
-  "description": "ApeChain NFT Minter - Tracks free mints in real-time using React, Ethers.js, and Tailwind CSS.",
-  "keywords": ["react", "typescript", "vite", "ethers", "nft", "blockchain"],
-  "author": "Your Name",
-  "license": "MIT",
+  "private": true,
+  "description": "ApeChain Live NFT Mints Viewer with Admin Panel",
+  "main": "index.html",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "lint": "eslint . --ext .ts,.tsx",
-    "format": "prettier --write src/**/*.ts src/**/*.tsx"
+    "dev": "echo \"Run index.html in a browser with a local server. For Vercel functions, use 'vercel dev'.\"",
+    "start": "echo \"Run index.html in a browser with a local server. For Vercel functions, use 'vercel dev'.\""
   },
-  "dependencies": {
-    "ethers": "^6.14.3",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
-  },
+  "keywords": [
+    "react",
+    "typescript",
+    "ethers",
+    "apechain",
+    "nft",
+    "vercel"
+  ],
+  "author": "",
+  "license": "ISC",
   "devDependencies": {
-  "@types/react": "^19.0.0",
-  "@types/react-dom": "^19.0.0",
-  "@vitejs/plugin-react": "^4.2.1",
-  "@typescript-eslint/eslint-plugin": "^7.4.1",
-  "@typescript-eslint/parser": "^7.4.1",
-  "eslint": "^8.56.0",
-  "eslint-config-prettier": "^9.1.0",
-  "eslint-plugin-react": "^7.37.0",
-  "prettier": "^3.2.4",
-  "typescript": "~5.7.2",
-  "vite": "^6.3.5"
-},
-  "engines": {
-    "node": ">=18.0.0"
+    "vite": "^6.3.5"
   }
 }

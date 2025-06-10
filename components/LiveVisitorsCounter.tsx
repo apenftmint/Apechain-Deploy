@@ -2,20 +2,22 @@
 import React, { useState, useEffect } from 'react';
 
 const LiveVisitorsCounter: React.FC = () => {
+  // Placeholder logic - in a real app, this would connect to a backend service.
   const [visitors, setVisitors] = useState(0);
 
   useEffect(() => {
-    const min = 5; 
-    const max = 25; 
+    // Simulate fetching visitor count
+    const min = 5; // Minimum simulated visitors
+    const max = 25; // Maximum simulated visitors
     setVisitors(Math.floor(Math.random() * (max - min + 1)) + min);
 
     const interval = setInterval(() => {
       setVisitors(prev => {
         const change = Math.random() > 0.5 ? 1 : -1;
         const newCount = prev + change;
-        return Math.max(min, Math.min(max, newCount)); 
+        return Math.max(min, Math.min(max, newCount)); // Keep within simulated range
       });
-    }, 5000); 
+    }, 5000); // Update every 5 seconds
 
     return () => clearInterval(interval);
   }, []);

@@ -4,11 +4,11 @@ import React, { useEffect, useState } from 'react';
 interface ConfettiPieceData {
   id: number;
   style: React.CSSProperties;
-  animationName: string; 
+  animationName: string; // To allow unique keyframes per piece for varied fall paths
 }
 
 interface ConfettiEffectProps {
-  count?: number; 
+  count?: number; // Number of confetti pieces
 }
 
 const ConfettiEffect: React.FC<ConfettiEffectProps> = ({ count = 50 }) => {
@@ -23,8 +23,8 @@ const ConfettiEffect: React.FC<ConfettiEffectProps> = ({ count = 50 }) => {
     for (let i = 0; i < count; i++) {
       const color = colors[Math.floor(Math.random() * colors.length)];
       const left = Math.random() * 100 + 'vw'; 
-      const animationDelay = Math.random() * 1.5 + 's'; 
-      const animationDuration = (55 + Math.random() * 5) + 's'; 
+      const animationDelay = Math.random() * 1.5 + 's'; // Stagger start times slightly more
+      const animationDuration = (55 + Math.random() * 5) + 's'; // 55-60 seconds duration
       const initialRotation = Math.random() * 360;
       const finalRotationX = Math.random() * 720 - 360;
       const finalRotationY = Math.random() * 360 - 180;
@@ -57,11 +57,11 @@ const ConfettiEffect: React.FC<ConfettiEffectProps> = ({ count = 50 }) => {
           width: width,
           height: height,
           backgroundColor: color,
-          opacity: 0, 
+          opacity: 0, // Will be set to 1 by animation
           animationName: animationName,
           animationDuration: animationDuration,
           animationDelay: animationDelay,
-          animationTimingFunction: 'cubic-bezier(0.25, 0.1, 0.25, 1)', 
+          animationTimingFunction: 'cubic-bezier(0.25, 0.1, 0.25, 1)', // Smoother fall
           animationFillMode: 'forwards',
           transform: `rotateZ(${initialRotation}deg)`,
           zIndex: 10, 
@@ -72,6 +72,7 @@ const ConfettiEffect: React.FC<ConfettiEffectProps> = ({ count = 50 }) => {
     setKeyframes(dynamicKeyframes);
     setPieces(newPiecesData);
 
+    // No JS cleanup timer needed here; CSS animation 'forwards' and parent unmount handle it.
   }, [count]);
 
   return (

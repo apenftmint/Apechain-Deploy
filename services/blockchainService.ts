@@ -18,6 +18,7 @@ import {
   ERC721_INTERFACE_ID,
   ERC165_ABI,
   MINIMAL_ERC721_ABI,
+  // ERC721_OWNEROF_ABI, // Kept in constants, but not used here for general owner counting
   MAX_TOKEN_ID,
   RETRY_ATTEMPTS,
   RETRY_DELAY_MS,
@@ -90,6 +91,8 @@ interface RpcEndpoint {
   isCurrentWssConnection: boolean; 
 }
 
+// CollectionOwnerDetails removed as owner counting is removed from here
+
 interface GetLogsRaceResult {
   logs: EthersLog[];
   provider: JsonRpcProvider;
@@ -101,6 +104,7 @@ class BlockchainService {
   private eventFilter: Filter;
   private blockTimestampCache: Map<number, number> = new Map();
   private readonly MAX_CACHE_SIZE = 1000;
+  // private collectionOwnerDetailsCache: Map<string, CollectionOwnerDetails> = new Map(); // REMOVED
 
 
   private currentMode: 'wss' | 'http_racing' | 'initializing' | 'stopped' | 'switching' = 'stopped';
@@ -112,7 +116,7 @@ class BlockchainService {
   private currentHttpPollingIntervalMs = DEFAULT_HTTP_POLLING_INTERVAL_MS;
   private mintsFoundInLastHttpPoll: boolean = false;
 
-  private onMintCallbackGlobal: ((mint: Omit<MintData, 'ownerCount'>) => void) | null = null; 
+  private onMintCallbackGlobal: ((mint: Omit<MintData, 'ownerCount'>) => void) | null = null; // Adjusted type
   private onErrorCallbackGlobal: ((error: string, isRateLimit?: boolean) => void) | null = null;
   private onSetupCompleteCallbackGlobal: (() => void) | null = null;
 
@@ -492,7 +496,7 @@ class BlockchainService {
   private async processLog(
     log: EthersLog,
     sourceProvider: Provider, 
-    onMintCallback: (mint: Omit<MintData, 'ownerCount'>) => void, 
+    onMintCallback: (mint: Omit<MintData, 'ownerCount'>) => void, // Adjusted type
     onErrorCallback: (error: string, isRateLimit?: boolean) => void
   ): Promise<void> {
     const txHash = log.transactionHash;
@@ -563,10 +567,14 @@ class BlockchainService {
         console.debug(`Could not fetch collection name for ${contractAddress} on ${sourceProviderUrl} (tx: ${txHash}). Error: ${e.message}`);
       }
       
+      // Owner counting logic removed entirely from here
+      // const ownerCount = 0; // No longer needed
+
       onMintCallback({
         txHash, contractAddress, tokenId, collectionName, timestamp,
         blockNumber: log.blockNumber, logIndex: log.index,
         tokenImagePlaceholderUrl: `https://picsum.photos/seed/${contractAddress}${tokenId}/64`,
+        // ownerCount, // REMOVED
         isFree, 
         valueWei, 
       });
@@ -579,7 +587,7 @@ class BlockchainService {
   }
 
   public async listenForMints(
-    onMintCallback: (mint: Omit<MintData, 'ownerCount'>) => void, 
+    onMintCallback: (mint: Omit<MintData, 'ownerCount'>) => void, // Adjusted type
     onErrorCallback: (error: string, isRateLimit?: boolean) => void,
     onSetupComplete: () => void
   ): Promise<void> {
@@ -623,6 +631,7 @@ class BlockchainService {
     this.activeWssProvider = null;
 
     this.blockTimestampCache.clear();
+    // this.collectionOwnerDetailsCache.clear(); // REMOVED
     this.lastPolledBlock = -1; 
     this.currentHttpPollingIntervalMs = DEFAULT_HTTP_POLLING_INTERVAL_MS;
 

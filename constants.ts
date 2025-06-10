@@ -86,9 +86,9 @@ export interface NftAdDetails {
   active: boolean; // Whether this ad slot is active
 }
 
-export const VALID_ACCENT_COLORS: ReadonlyArray<NftAdDetails['accentColor']> = ['sky', 'fuchsia', 'emerald', 'amber', 'rose'];
-
 export const USE_PLACEHOLDER_IMAGE_URL = "USE_PLACEHOLDER"; // Special string to trigger placeholder image
+export const VALID_ACCENT_COLORS: NftAdDetails['accentColor'][] = ['sky', 'fuchsia', 'emerald', 'amber', 'rose'];
+
 
 export const DEFAULT_NFT_ADVERTISEMENTS_LIST: NftAdDetails[] = [
   { 
@@ -129,7 +129,7 @@ export const DEFAULT_NFT_ADVERTISEMENTS_LIST: NftAdDetails[] = [
     imageUrl: "https://picsum.photos/seed/defaultmoons/200", 
     mintLink: "#moons", 
     accentColor: 'sky',
-    active: false, 
+    active: false, // Default inactive for the 4th slot
   },
   { 
     id: 'ad_slot_5',
@@ -139,7 +139,7 @@ export const DEFAULT_NFT_ADVERTISEMENTS_LIST: NftAdDetails[] = [
     imageUrl: USE_PLACEHOLDER_IMAGE_URL, 
     mintLink: "#artifacts", 
     accentColor: 'amber',
-    active: false, 
+    active: false, // Default inactive for the 5th slot
   }
 ];
 
@@ -148,18 +148,19 @@ export const DEFAULT_NFT_ADVERTISEMENTS_LIST: NftAdDetails[] = [
 export const APP_MAIN_TITLE_HEIGHT_PX = 60; 
 export const SCROLLING_BANNER_HEIGHT_PX = 50; 
 export const NFT_AD_POSTER_HEIGHT_PX = 130; 
-export const NFT_AD_POSTER_CONFETTI_INTERVAL_MS = 1 * 60 * 1000; 
+export const NFT_AD_POSTER_CONFETTI_INTERVAL_MS = 1 * 60 * 1000; // 1 minute for poster confetti
 
+// Dynamically calculate padding based on active elements
+// Now accepts twitterId and ads as parameters to avoid direct localStorage reads
 export const calculateBodyPaddingTop = (effectiveTwitterId?: string | null, effectiveAds?: NftAdDetails[] | null): number => {
   let totalPadding = APP_MAIN_TITLE_HEIGHT_PX;
   
   const onConfigPage = typeof window !== 'undefined' && 
-                       window.location.hash && // Ensure hash exists
                        (window.location.hash.includes(CONFIG_LOGIN_PAGE_ID) || 
                         window.location.hash.includes(CONFIG_PANEL_PAGE_ID));
 
-  if (onConfigPage) { 
-    return totalPadding; // Config pages only have the main title header
+  if (onConfigPage) { // Config pages have minimal header
+    return totalPadding;
   }
 
   if (effectiveTwitterId && ADVERTISEMENT_TEXT) {
@@ -174,21 +175,26 @@ export const calculateBodyPaddingTop = (effectiveTwitterId?: string | null, effe
 };
 
 export const INITIAL_TABLE_COLLECTIONS_TO_PROCESS = 30; 
-export const ANALYSIS_CACHE_DURATION_MS = 6 * 60 * 60 * 1000; 
+export const ANALYSIS_CACHE_DURATION_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 // --- Admin Settings ---
+// WARNING: Storing plaintext credentials in client-side code is highly insecure. 
+// This is for demonstration or specific local testing purposes ONLY.
+// In a real application, use a secure backend for authentication and data storage.
 export const ADMIN_USERNAME = "admin";
-export const ADMIN_PASSWORD = "admin@123"; 
+export const ADMIN_PASSWORD = "admin@123"; // Plaintext password. DO NOT USE THIS IN PRODUCTION.
 
-export const MAX_ADMIN_EDITABLE_ADS = 5; 
+export const MAX_ADMIN_EDITABLE_ADS = 5; // How many ad slots the admin can manage
 
 // Configuration Page Routing (using query parameters in hash)
 export const PAGE_QUERY_PARAM = 'page';
 export const CONFIG_LOGIN_PAGE_ID = 'config_login';
 export const CONFIG_PANEL_PAGE_ID = 'config_panel';
 
-// --- API Endpoints ---
-export const API_BASE_URL = '/.netlify/functions'; // For Netlify deployment
+// --- API Endpoints (Hypothetical Backend) ---
+// Replace with your actual backend URL if you implement one.
+// For local testing, you might use something like 'http://localhost:3001' if your backend runs there.
+export const API_BASE_URL = '/api'; // Or your actual backend base URL
 export const SETTINGS_API_ENDPOINT = `${API_BASE_URL}/settings`;
 export const SEEN_POPUPS_API_ENDPOINT = `${API_BASE_URL}/seen-popups`;
 export const MARK_POPUP_SEEN_API_ENDPOINT = `${API_BASE_URL}/mark-popup-seen`;

@@ -18,8 +18,8 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
     <div 
       className="overflow-x-auto rounded-lg shadow-2xl custom-scrollbar border border-slate-700 backdrop-blur-sm bg-slate-800/30 flex-grow" 
       style={{ 
-        minHeight: '550px', 
-        maxHeight: 'calc(100vh - 280px)' 
+        minHeight: '550px', // Adjusted to show ~10 items + header
+        maxHeight: 'calc(100vh - 280px)' // Keep a reasonable max height
       }}
     >
       <table className="min-w-full divide-y divide-slate-700">
