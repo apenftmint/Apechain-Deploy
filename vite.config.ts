@@ -1,10 +1,11 @@
-import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
+import path from 'path';
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, '.', '');
+  const env = loadEnv(mode, process.cwd());
+
   return {
-    base: '/Apechain-Deploy/', // 👈 Important for Netlify, makes paths relative
+    base: '/', // 👈 Use this for Netlify root domain
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
