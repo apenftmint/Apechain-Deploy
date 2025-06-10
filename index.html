@@ -13,13 +13,23 @@
     <meta property="og:url" content="https://apenftmint.netlify.app/" />
     <meta property="og:title" content="ApeChain Live NFT Mints" />
     <meta property="og:description" content="A React application that tracks free mints for NFTs on the ApeChain network in real-time." />
-    <!-- <meta property="og:image" content="https://apenftmint.netlify.app/your-preview-image.png"> You would add a preview image URL here -->
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
     <meta property="twitter:url" content="https://apenftmint.netlify.app/" />
     <meta property="twitter:title" content="ApeChain Live NFT Mints" />
     <meta property="twitter:description" content="A React application that tracks free mints for NFTs on the ApeChain network in real-time." />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@^19.1.0",
+        "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+        "react/": "https://esm.sh/react@^19.1.0/",
+        "ethers": "https://esm.sh/ethers@^6.14.3"
+      }
+    }
     <!-- <meta property="twitter:image" content="https://apenftmint.netlify.app/your-preview-image.png"> You would add a preview image URL here -->
 
     <script src="https://cdn.tailwindcss.com"></script>
@@ -176,9 +186,10 @@
       }
     </style>
 </head>
-<body class="bg-slate-900">
+  <body class="bg-slate-900">
   <noscript>You need to enable JavaScript to run this app.</noscript>
   <div id="root"></div>
 </body>
 </html>
+
 
