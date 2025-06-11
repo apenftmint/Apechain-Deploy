@@ -4,23 +4,26 @@ import {
     DEFAULT_ADVERTISEMENT_TWITTER_USER_ID, 
     DEFAULT_NFT_ADVERTISEMENTS_LIST,
     NftAdDetails,
-    // ADMIN_SETTINGS_LOCAL_STORAGE_KEY, // Replaced by backend
     MAX_ADMIN_EDITABLE_ADS,
     USE_PLACEHOLDER_IMAGE_URL,
     SETTINGS_API_ENDPOINT
 } from '../../constants';
 import { AdminSettings } from '../../App'; 
-import LoadingSpinner from '../LoadingSpinner'; // For saving indicator
+import LoadingSpinner from '../LoadingSpinner'; 
 
 interface AdminPanelProps {
   onLogout: () => void;
-  onSettingsSave: () => void; // Called after successful save attempt to trigger reload in App.tsx
+  onSettingsSave: () => void; 
   currentAds: NftAdDetails[]; 
   currentTwitterId: string;   
 }
 
 const VALID_PANEL_ACCENT_COLORS: NftAdDetails['accentColor'][] = ['sky', 'fuchsia', 'emerald', 'amber', 'rose'];
 
+// Type predicate function to check if a string is a valid NftAdDetails['accentColor']
+function isActualAccentColor(color: string): color is NftAdDetails['accentColor'] {
+  return (VALID_PANEL_ACCENT_COLORS as string[]).includes(color);
+}
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, currentAds, currentTwitterId }) => {
   const [twitterUserId, setTwitterUserId] = useState(DEFAULT_ADVERTISEMENT_TWITTER_USER_ID);
@@ -31,77 +34,60 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
 
 
   const initializeAds = useCallback(() => {
-    const initialAdSlots: NftAdDetails[] = Array.from({ length: MAX_ADMIN_EDITABLE_ADS }).map((_, index): NftAdDetails => {
+    const newInitialAdSlots: NftAdDetails[] = Array.from({ length: MAX_ADMIN_EDITABLE_ADS }).map((_, index): NftAdDetails => {
         const slotId = `ad_slot_${index + 1}`;
         const foundCurrentAd = currentAds.find(ad => ad.id === slotId);
-        const defaultAdForSlotInfo = DEFAULT_NFT_ADVERTISEMENTS_LIST.find(ad => ad.id === slotId);
-        
-        const baseAdSource = foundCurrentAd || defaultAdForSlotInfo;
+        const defaultAdConfigForSlot = DEFAULT_NFT_ADVERTISEMENTS_LIST.find(ad => ad.id === slotId);
 
-        let name: string, supply: string, price: string, imageUrl: string, mintLink: string, active: boolean;
-        let determinedAccentColor: NftAdDetails['accentColor'];
+        let sourceForSlotData: NftAdDetails;
 
-        if (baseAdSource) {
-            name = baseAdSource.name;
-            supply = baseAdSource.supply;
-            price = baseAdSource.price;
-            imageUrl = baseAdSource.imageUrl;
-            mintLink = baseAdSource.mintLink;
-            active = baseAdSource.active;
-            
-            // Validate and assign accentColor
-            // Start with a safe default (e.g., from defaultAdForSlotInfo or 'sky')
-            let colorToValidate: string | undefined = baseAdSource.accentColor;
-            let fallbackColor: NftAdDetails['accentColor'] = 'sky';
-            if (defaultAdForSlotInfo && VALID_PANEL_ACCENT_COLORS.includes(defaultAdForSlotInfo.accentColor)) {
-                fallbackColor = defaultAdForSlotInfo.accentColor;
-            }
-
-            if (colorToValidate && VALID_PANEL_ACCENT_COLORS.includes(colorToValidate as NftAdDetails['accentColor'])) {
-                determinedAccentColor = colorToValidate as NftAdDetails['accentColor'];
-            } else {
-                if(colorToValidate) console.warn(`Invalid accentColor "${colorToValidate}" from baseAdSource for slot ${slotId}, falling back.`);
-                determinedAccentColor = fallbackColor;
-            }
+        if (foundCurrentAd) {
+            sourceForSlotData = foundCurrentAd; // currentAds is NftAdDetails[], accentColor sanitized in App.tsx
+        } else if (defaultAdConfigForSlot) {
+            sourceForSlotData = defaultAdConfigForSlot; // DEFAULT_NFT_ADVERTISEMENTS_LIST has NftAdDetails[]
         } else {
-            // Defaults for a completely new slot not covered by currentAds or defaults by ID
-            name = `Ad Slot ${index + 1}`;
-            supply = "Supply: N/A";
-            price = "Price: N/A";
-            imageUrl = USE_PLACEHOLDER_IMAGE_URL;
-            mintLink = "#";
-            determinedAccentColor = defaultAdForSlotInfo?.accentColor && VALID_PANEL_ACCENT_COLORS.includes(defaultAdForSlotInfo.accentColor) 
-                                   ? defaultAdForSlotInfo.accentColor 
-                                   : 'sky';
-            active = false;
+            // This is a robust fallback if a slotId somehow doesn't match anything in defaults
+            console.warn(`[AdminPanel] No current or default ad found for slotId ${slotId}. Using minimal fallback.`);
+            sourceForSlotData = {
+                id: slotId,
+                name: `Fallback Slot ${index + 1}`,
+                supply: "Supply: N/A",
+                price: "Price: N/A",
+                imageUrl: USE_PLACEHOLDER_IMAGE_URL,
+                mintLink: "#",
+                accentColor: 'sky', // Guaranteed valid NftAdDetails['accentColor']
+                active: false,
+            };
         }
         
+        // Construct the adData, ensuring slotId is from the current iteration,
+        // and other properties from the determined source.
         const adData: NftAdDetails = {
-            id: slotId,
-            name,
-            supply,
-            price,
-            imageUrl,
-            mintLink,
-            accentColor: determinedAccentColor,
-            active,
+            id: slotId, // Use the current loop's slotId
+            name: sourceForSlotData.name,
+            supply: sourceForSlotData.supply,
+            price: sourceForSlotData.price,
+            imageUrl: sourceForSlotData.imageUrl,
+            mintLink: sourceForSlotData.mintLink,
+            accentColor: sourceForSlotData.accentColor, // This should be safe now.
+            active: sourceForSlotData.active,
         };
-
+        
         if (adData.imageUrl && adData.imageUrl.startsWith('data:image')) {
-            setImagePreviews(prev => ({ ...prev, [slotId]: adData.imageUrl }));
+            setImagePreviews(prev => ({ ...prev, [adData.id]: adData.imageUrl }));
         } else {
-            setImagePreviews(prev => ({ ...prev, [slotId]: null }));
+            setImagePreviews(prev => ({ ...prev, [adData.id]: null }));
         }
         return adData;
     });
-    setAds(initialAdSlots);
+    setAds(newInitialAdSlots);
   }, [currentAds]);
 
 
   useEffect(() => {
     setTwitterUserId(currentTwitterId);
     initializeAds();
-  }, [currentTwitterId, initializeAds]);
+  }, [currentTwitterId, currentAds, initializeAds]);
 
   const handleImageFileChange = (index: number, file: File | null) => {
     const adId = ads[index].id;
@@ -109,7 +95,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
         const reader = new FileReader();
         reader.onloadend = () => {
             const dataUrl = reader.result as string;
-            // Use string for field name to call handleAdChange
             handleAdChange(index, 'imageUrl', dataUrl);
             setImagePreviews(prev => ({ ...prev, [adId]: dataUrl }));
         };
@@ -119,7 +104,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
             setImagePreviews(prev => ({ ...prev, [adId]: null }));
         };
         reader.readAsDataURL(file);
-    } else { // File cleared
+    } else { 
         handleAdChange(index, 'imageUrl', USE_PLACEHOLDER_IMAGE_URL); 
         setImagePreviews(prev => ({ ...prev, [adId]: null }));
     }
@@ -137,16 +122,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
           }
           break;
         case 'accentColor':
-          // value from select is string, cast to the specific literal union type
-          if (typeof value === 'string' && VALID_PANEL_ACCENT_COLORS.includes(value as NftAdDetails['accentColor'])) {
-            adToUpdate.accentColor = value as NftAdDetails['accentColor'];
+          if (typeof value === 'string' && isActualAccentColor(value)) {
+            adToUpdate.accentColor = value;
           } else if (typeof value === 'string') {
-             // Fallback if somehow an invalid string is passed, though select should prevent this
-            adToUpdate.accentColor = 'sky'; 
-            console.warn(`Invalid accent color "${value}" received, defaulting to 'sky'.`);
+            // Keep current color if invalid string is somehow passed, or default.
+            // This should ideally not happen if select options are strictly from VALID_PANEL_ACCENT_COLORS.
+            console.warn(`[AdminPanel] Invalid accentColor string "${value}" received for ad slot ${index}. Using current or default.`);
+            adToUpdate.accentColor = adToUpdate.accentColor || 'sky';
           }
           break;
-        case 'id': // ID should generally not be changed here, but handle for completeness
+        // Fields that expect string values
+        case 'id': // id should not be changed by user input here, but handled for completeness
         case 'name':
         case 'supply':
         case 'price':
@@ -155,15 +141,15 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
           if (typeof value === 'string') {
             adToUpdate[field] = value;
             if (field === 'imageUrl' && !value.startsWith('data:image')) {
-              // Clear preview if URL is manually entered and not a data URI
               setImagePreviews(prevMap => ({ ...prevMap, [adToUpdate.id]: null }));
             }
           }
           break;
         default:
-          // Exhaustive check for unhandled fields, though keyof NftAdDetails should prevent this.
-          // const _exhaustiveCheck: never = field; // Uncomment for stricter checks if needed
-          // console.warn("Unhandled field in handleAdChange:", _exhaustiveCheck);
+          // This ensures we don't accidentally try to assign to a non-existent property
+          // or handle a property with the wrong type.
+          const _exhaustiveCheck: never = field; // Helps catch unhandled cases at compile time
+          console.warn(`[AdminPanel] Unhandled field in handleAdChange: ${_exhaustiveCheck}`);
           break;
       }
       
@@ -197,8 +183,6 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
         setIsSaving(false);
     }
   };
-
-  // const accentColors: NftAdDetails['accentColor'][] = ['sky', 'fuchsia', 'emerald', 'amber', 'rose']; // Now VALID_PANEL_ACCENT_COLORS
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 md:p-8 my-8 bg-slate-800/70 rounded-xl shadow-2xl border border-slate-700 backdrop-blur-sm text-slate-100">
