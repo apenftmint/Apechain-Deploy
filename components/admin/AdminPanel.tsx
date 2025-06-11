@@ -4,10 +4,10 @@ import {
     DEFAULT_ADVERTISEMENT_TWITTER_USER_ID, 
     DEFAULT_NFT_ADVERTISEMENTS_LIST,
     NftAdDetails,
-    // ADMIN_SETTINGS_LOCAL_STORAGE_KEY, // Replaced by backend
     MAX_ADMIN_EDITABLE_ADS,
     USE_PLACEHOLDER_IMAGE_URL,
-    SETTINGS_API_ENDPOINT
+    SETTINGS_API_ENDPOINT,
+    VALID_ACCENT_COLORS
 } from '../../constants';
 import { AdminSettings } from '../../App'; 
 import LoadingSpinner from '../LoadingSpinner'; // For saving indicator
@@ -28,37 +28,66 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
 
 
   const initializeAds = useCallback(() => {
-    const initialAdSlots: NftAdDetails[] = Array.from({ length: MAX_ADMIN_EDITABLE_ADS }).map((_, index): NftAdDetails => {
+    const adSlotsToSet: NftAdDetails[] = [];
+    const newImagePreviews: {[key: string]: string | null} = {};
+
+    for (let index = 0; index < MAX_ADMIN_EDITABLE_ADS; index++) {
         const slotId = `ad_slot_${index + 1}`;
-        const existingAd = currentAds.find(ad => ad.id === slotId) || 
-                           DEFAULT_NFT_ADVERTISEMENTS_LIST.find(ad => ad.id === slotId);
-        
-        const adData: NftAdDetails = existingAd ? { ...existingAd } : {
-            id: slotId,
-            name: `Ad Slot ${index + 1}`,
-            supply: "Supply: N/A",
-            price: "Price: N/A",
-            imageUrl: USE_PLACEHOLDER_IMAGE_URL,
-            mintLink: "#",
-            accentColor: 'sky',
-            active: false,
-        };
+        const configFromCurrentAds = currentAds.find(ad => ad.id === slotId);
+        const configFromDefaults = DEFAULT_NFT_ADVERTISEMENTS_LIST.find(dAd => dAd.id === slotId);
+
+        let adData: NftAdDetails;
+
+        if (configFromCurrentAds) {
+            // Validate accentColor from currentAds, though it should be correct if currentAds is NftAdDetails[]
+            // The 'as any' is to help 'includes' with the union type; VALID_ACCENT_COLORS contains the valid literals.
+            const validatedAccentColor = VALID_ACCENT_COLORS.includes(configFromCurrentAds.accentColor as any)
+                ? configFromCurrentAds.accentColor
+                : (configFromDefaults ? configFromDefaults.accentColor : 'sky');
+            
+            adData = {
+                ...configFromCurrentAds,
+                id: slotId, // Ensure the ID is the slot's ID.
+                accentColor: validatedAccentColor,
+            };
+        } else if (configFromDefaults) {
+            // accentColor from defaults is already typed correctly
+            adData = { 
+                ...configFromDefaults,
+                id: slotId // Ensure the ID is the slot's ID.
+            };
+        } else {
+            // Fallback if no current ad and no default ad for this slot ID
+            adData = {
+                id: slotId,
+                name: `Ad Slot ${index + 1} (New)`,
+                supply: "Supply: ---",
+                price: "Price: ---",
+                imageUrl: USE_PLACEHOLDER_IMAGE_URL,
+                mintLink: "#",
+                accentColor: 'sky', // Default valid accent color
+                active: false,
+            };
+        }
+        adSlotsToSet.push(adData);
 
         if (adData.imageUrl && adData.imageUrl.startsWith('data:image')) {
-            setImagePreviews(prev => ({ ...prev, [adData.id]: adData.imageUrl }));
+            newImagePreviews[adData.id] = adData.imageUrl;
         } else {
-            setImagePreviews(prev => ({ ...prev, [adData.id]: null }));
+            newImagePreviews[adData.id] = null;
         }
-        return adData;
-    });
-    setAds(initialAdSlots);
+    }
+    
+    setAds(adSlotsToSet);
+    setImagePreviews(newImagePreviews);
+
   }, [currentAds]);
 
 
   useEffect(() => {
     setTwitterUserId(currentTwitterId);
     initializeAds();
-  }, [currentTwitterId, currentAds, initializeAds]);
+  }, [currentTwitterId, initializeAds]);
 
   const handleImageFileChange = (index: number, file: File | null) => {
     const adId = ads[index].id;
@@ -86,17 +115,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
     if (field === 'active') {
         newAds[index] = { ...newAds[index], [field]: value as boolean };
     } else if (field === 'accentColor') {
-        // Ensure the value is a valid accent color, otherwise default or retain current
-        const validAccentColors: NftAdDetails['accentColor'][] = ['sky', 'fuchsia', 'emerald', 'amber', 'rose'];
-        if (validAccentColors.includes(value as NftAdDetails['accentColor'])) {
+         // Ensure the value is a valid accent color before setting
+        if (VALID_ACCENT_COLORS.includes(value as any)) {
             newAds[index] = { ...newAds[index], [field]: value as NftAdDetails['accentColor'] };
         } else {
-            // Optionally log a warning or revert to a default if an invalid string is passed
-            console.warn(`Invalid accent color: ${value}. Retaining current or default.`);
-            newAds[index] = { ...newAds[index], [field]: newAds[index].accentColor || 'sky' };
+            // Optionally handle invalid value, e.g., revert or set to default
+            console.warn(`Invalid accent color "${value}" provided for ad slot ${index + 1}. Using default.`);
+            newAds[index] = { ...newAds[index], [field]: 'sky' }; // Default to 'sky' or existing
         }
     }
-    else {
+     else {
         newAds[index] = { ...newAds[index], [field]: value as string };
     }
     // If imageUrl is manually changed to something not a data URL, clear preview
@@ -133,7 +161,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
     }
   };
 
-  const accentColors: NftAdDetails['accentColor'][] = ['sky', 'fuchsia', 'emerald', 'amber', 'rose'];
+  const accentColorsForSelect: NftAdDetails['accentColor'][] = ['sky', 'fuchsia', 'emerald', 'amber', 'rose'];
 
   return (
     <div className="w-full max-w-4xl mx-auto p-4 md:p-8 my-8 bg-slate-800/70 rounded-xl shadow-2xl border border-slate-700 backdrop-blur-sm text-slate-100">
@@ -222,7 +250,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
                  <div>
                   <label htmlFor={`adAccent-${index}`} className="text-xs text-slate-400">Accent Color</label>
                   <select id={`adAccent-${index}`} value={ad.accentColor} onChange={e => handleAdChange(index, 'accentColor', e.target.value as NftAdDetails['accentColor'])} className="w-full mt-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm text-white focus:outline-none focus:ring-sky-500 focus:border-sky-500">
-                    {accentColors.map(color => <option key={color} value={color}>{color.charAt(0).toUpperCase() + color.slice(1)}</option>)}
+                    {accentColorsForSelect.map(color => <option key={color} value={color}>{color.charAt(0).toUpperCase() + color.slice(1)}</option>)}
                   </select>
                 </div>
                 <div className="flex items-center pt-2">

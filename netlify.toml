@@ -1,38 +1,9 @@
 [build]
-  command = "npm run build" # Your build command
-  publish = "dist"          # The directory your build command outputs to
-  functions = "netlify/functions" # Directory for Netlify serverless functions
+  command = "npm run build" # Or "yarn build" if you use Yarn
+  publish = "dist"          # Vite's default output directory. Change if your build tool outputs elsewhere (e.g., "build" for Create React App).
+  functions = "netlify/functions"
 
-# Build context for production
-[context.production]
-  # Production-specific settings can go here if needed
-
-# Build context for deploy previews
-[context.deploy-preview]
-  command = "npm run build"
-
-# Build context for branch deploys
-[context.branch-deploy]
-  command = "npm run build"
-
-# Development server settings for `netlify dev`
-[dev]
-  command = "npm run dev"     # Command to start your Vite dev server
-  port = 5173                 # Port your Vite dev server runs on (Vite's default)
-  targetPort = 5173           # Port Netlify's proxy will target
-  publish = "dist"            # Should match your build.publish for consistency with `netlify dev --live`
-  framework = "#vite"         # Helps Netlify CLI optimize for Vite
-
-# Redirects and Rewrites
-# SPA fallback: Handle client-side routing by redirecting all paths to index.html
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-# API proxy/rewrite: Route frontend calls to /api/* to Netlify functions
-# Ensure you create your functions in the `netlify/functions` directory.
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200 # 200 for a rewrite, 301/302 for a redirect

@@ -1,5 +1,6 @@
+
 {
-  "name": "new of Copy of Admin login apechain testing",
+  "name": "ApeChain Live NFT Mints",
   "description": "A React application that tracks free mints (value = 0 ETH) for NFTs with Token ID ≤ 10,000 on the Base network in real-time.",
   "requestFramePermissions": [],
   "prompt": ""

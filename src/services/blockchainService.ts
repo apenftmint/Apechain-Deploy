@@ -226,20 +226,20 @@ class BlockchainService {
             (err.error && typeof err.error.message === 'string' && err.error.message.toLowerCase().includes("rate limit"))
         );
         const isRateLimitError = err.code === 429 || err.code === 'RATE_LIMIT' || (err.error && err.error.code === -32005) || messageIncludesRateLimit;
-        const isTimeoutError = err.name === 'AbortError' || err.name === 'TimeoutError' || (typeof err.message === 'string' && err.message.toLowerCase().includes('timeout'));
+        const isTimeoutError = typeof err.message === 'string' && err.message.toLowerCase().includes('timeout');
         const isNetworkError = err.code === 'NETWORK_ERROR' || err.event === 'network' || isTimeoutError;
         
         this.updateRpcHealth(rpcUrlForLogging, false, isRateLimitError, isTimeoutError);
 
         if ((isRateLimitError || isNetworkError) && i < retries) {
           const currentDelay = delayMs * Math.pow(2, i) + (Math.random() * delayMs * 0.5);
-          console.warn(`[Retry] ${isRateLimitError ? 'Rate limit' : (isTimeoutError ? 'Timeout' : 'Network error')} for ${operationName} on ${rpcUrlForLogging}. Retrying attempt ${i + 1}/${retries + 1} after ${currentDelay.toFixed(0)}ms...`);
+          console.warn(`[Retry] ${isRateLimitError ? 'Rate limit' : (isTimeoutError ? 'Timeout' : 'Network error')} for ${operationName} on ${rpcUrlForLogging}. Retrying attempt ${i + 1}/${retries} after ${currentDelay.toFixed(0)}ms...`);
           await new Promise(res => setTimeout(res, currentDelay));
         } else {
           let detailedError = err.message || String(err);
           if(err.error && err.error.message) detailedError += ` | Nested: ${err.error.message}`;
           if(err.info && err.info.method && err.info.signature) detailedError += ` | Method: ${err.info.method}, Sig: ${err.info.signature}`;
-          console.error(`[Retry] Failed ${operationName} after ${i + 1} attempts on ${rpcUrlForLogging}. Error:`, detailedError, err.code ? `Code: ${err.code}` : '');
+          console.error(`[Retry] Failed ${operationName} after ${i} retries on ${rpcUrlForLogging}. Error:`, detailedError, err.code ? `Code: ${err.code}` : '');
           if (isRateLimitError) err.isRateLimitError = true; 
           throw err;
         }
@@ -553,10 +553,7 @@ class BlockchainService {
         timestamp = block.timestamp;
         this.blockTimestampCache.set(log.blockNumber, timestamp);
         if (this.blockTimestampCache.size > this.MAX_CACHE_SIZE) {
-          const firstKey = this.blockTimestampCache.keys().next().value;
-          if (firstKey !== undefined) { 
-            this.blockTimestampCache.delete(firstKey);
-          }
+          this.blockTimestampCache.delete(this.blockTimestampCache.keys().next().value);
         }
       }
 
@@ -570,10 +567,14 @@ class BlockchainService {
         console.debug(`Could not fetch collection name for ${contractAddress} on ${sourceProviderUrl} (tx: ${txHash}). Error: ${e.message}`);
       }
       
+      // Owner counting logic removed entirely from here
+      // const ownerCount = 0; // No longer needed
+
       onMintCallback({
         txHash, contractAddress, tokenId, collectionName, timestamp,
         blockNumber: log.blockNumber, logIndex: log.index,
         tokenImagePlaceholderUrl: `https://picsum.photos/seed/${contractAddress}${tokenId}/64`,
+        // ownerCount, // REMOVED
         isFree, 
         valueWei, 
       });
@@ -630,6 +631,7 @@ class BlockchainService {
     this.activeWssProvider = null;
 
     this.blockTimestampCache.clear();
+    // this.collectionOwnerDetailsCache.clear(); // REMOVED
     this.lastPolledBlock = -1; 
     this.currentHttpPollingIntervalMs = DEFAULT_HTTP_POLLING_INTERVAL_MS;
 

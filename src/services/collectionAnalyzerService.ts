@@ -29,30 +29,25 @@ async function fetchWithRetry<T>(
                                (typeof err.code === 'string' && err.code.toUpperCase().includes('RATE_LIMIT')) ||
                                (err.error && err.error.code === -32005) ||
                                (err.message && err.message.toLowerCase().includes("rate limit"));
-      
       const isAbortError = err.name === 'AbortError';
-      // Ensure err.name === 'TimeoutError' is explicitly checked
-      const isTimeoutError = err.name === 'TimeoutError' || 
-                             isAbortError ||
+      const isTimeoutError = isAbortError ||
                              (typeof err.code === 'string' && err.code.toUpperCase().includes('TIMEOUT')) ||
                              (err.message && err.message.toLowerCase().includes('timeout'));
-
       const isNetworkError = (typeof err.code === 'string' && err.code.toUpperCase().includes('NETWORK_ERROR')) ||
                              (typeof err.code === 'string' && err.code.toUpperCase().includes('SERVER_ERROR')) ||
                              (err.message && err.message.toLowerCase().includes('failed to fetch')) ||
                              (err.message && err.message.toLowerCase().includes('network request failed'));
-      
       const shouldRetry = (isRateLimitError || isTimeoutError || isNetworkError) && i < retries;
 
       if (shouldRetry) {
         const currentDelay = delayMs * Math.pow(2, i) + (Math.random() * delayMs * 0.5);
         let errorType = "Error";
         if (isRateLimitError) errorType = "Rate limit";
-        else if (isAbortError) errorType = "Fetch abort";
+        else if (isAbortError) errorType = "Fetch abort/timeout";
         else if (isTimeoutError) errorType = "Timeout";
         else if (isNetworkError) errorType = "Network/Fetch error";
         
-        console.warn(`[AnalyzerFetchRetry] ${errorType} for ${operationName} (${contextInfo}). Retrying attempt ${i + 1} of ${retries + 1} after ${currentDelay.toFixed(0)}ms... Error: ${err.message}`);
+        console.warn(`[AnalyzerFetchRetry] ${errorType} for ${operationName} (${contextInfo}). Retrying attempt ${i + 1}/${retries + 1} after ${currentDelay.toFixed(0)}ms... Error: ${err.message}`);
         await new Promise(res => setTimeout(res, currentDelay));
       } else {
         let detailedError = err.message || String(err);
@@ -61,7 +56,6 @@ async function fetchWithRetry<T>(
             if (typeof err.info === 'object') detailedError += ` | Info: ${JSON.stringify(err.info)}`;
             else detailedError += ` | Info: ${err.info}`;
         }
-        // Log with current attempt (i+1) and total possible attempts (retries+1)
         console.error(`[AnalyzerFetchRetry] Failed ${operationName} (${contextInfo}) on attempt ${i + 1} of ${retries + 1}. No further retries. Error:`, detailedError, err.code ? `Code: ${err.code}` : '', err.name ? `Name: ${err.name}` : '', err);
         if (isRateLimitError) err.isRateLimitError = true;
         throw err;
@@ -182,27 +176,26 @@ export class CollectionAnalyzerService {
     const httpUri = uri.replace(/^ipfs:\/\//, 'https://ipfs.io/ipfs/');
 
     try {
-      // Using increased timeout of 15000ms (15 seconds)
-      const response = await fetchWithRetry(() => fetch(httpUri, { signal: AbortSignal.timeout(15000) }), 'fetchMetadataFromURI_fetch', 2, 1000, httpUri.slice(0,50));
+      const response = await fetchWithRetry(() => fetch(httpUri, { signal: AbortSignal.timeout(7000) }), 'fetchMetadataFromURI_fetch', 2, 1000, httpUri.slice(0,50));
       if (!response.ok) {
         console.warn(`Failed to fetch metadata from ${httpUri}, status: ${response.status} (after retries).`);
         return { metadata: null, status: 'broken_uri' };
       }
       const json = await response.json();
       if (typeof json === 'object' && json !== null) {
+        // Basic check for essential metadata fields
         if (json.name || json.image || json.description) {
             return { metadata: json as TokenMetadata, status: 'ok' };
         } else {
             console.warn(`Metadata from ${httpUri} is valid JSON but lacks common fields (name, image, description).`);
-            return { metadata: json as TokenMetadata, status: 'invalid_json' };
+            return { metadata: json as TokenMetadata, status: 'invalid_json' }; // Technically valid JSON but poor metadata
         }
       } else {
         return { metadata: null, status: 'invalid_json' };
       }
     } catch (error: any) {
-        // Check for AbortError (from AbortSignal) or TimeoutError (generic)
-        if (error.name === 'AbortError' || error.name === 'TimeoutError') { 
-             console.warn(`Timeout/Abort fetching metadata from ${httpUri} (after retries). Name: ${error.name}, Message: ${error.message}`);
+        if (error.name === 'AbortError') { 
+             console.warn(`Timeout fetching metadata from ${httpUri} (after retries).`);
              return { metadata: null, status: 'broken_uri' }; 
         }
         console.warn(`Error fetching or parsing metadata from ${httpUri} (after retries):`, error);

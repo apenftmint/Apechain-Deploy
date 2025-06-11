@@ -40,7 +40,8 @@ import {
     CONFIG_PANEL_PAGE_ID,
     SETTINGS_API_ENDPOINT,
     SEEN_POPUPS_API_ENDPOINT,
-    MARK_POPUP_SEEN_API_ENDPOINT
+    MARK_POPUP_SEEN_API_ENDPOINT,
+    VALID_ACCENT_COLORS
 } from './constants';
 
 export interface AppTableDisplayMintData extends MintData { 
@@ -60,7 +61,7 @@ export interface AdminSettings {
 }
 
 // Helper array for accent color validation, can be moved to constants.ts if needed elsewhere
-const VALID_ACCENT_COLORS: NftAdDetails['accentColor'][] = ['sky', 'fuchsia', 'emerald', 'amber', 'rose'];
+// const VALID_ACCENT_COLORS: NftAdDetails['accentColor'][] = ['sky', 'fuchsia', 'emerald', 'amber', 'rose']; // Moved to constants.ts
 
 const getPageFromHash = (hash: string): string | null => {
     const parts = hash.split('?');

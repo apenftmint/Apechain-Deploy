@@ -86,6 +86,8 @@ export interface NftAdDetails {
   active: boolean; // Whether this ad slot is active
 }
 
+export const VALID_ACCENT_COLORS: ReadonlyArray<NftAdDetails['accentColor']> = ['sky', 'fuchsia', 'emerald', 'amber', 'rose'];
+
 export const USE_PLACEHOLDER_IMAGE_URL = "USE_PLACEHOLDER"; // Special string to trigger placeholder image
 
 export const DEFAULT_NFT_ADVERTISEMENTS_LIST: NftAdDetails[] = [
@@ -190,9 +192,8 @@ export const CONFIG_LOGIN_PAGE_ID = 'config_login';
 export const CONFIG_PANEL_PAGE_ID = 'config_panel';
 
 // --- API Endpoints (Hypothetical Backend) ---
-// Replace with your actual backend URL if you implement one.
-// For local testing, you might use something like 'http://localhost:3001' if your backend runs there.
-export const API_BASE_URL = '/api'; // Or your actual backend base URL
+// For Netlify, serverless functions are typically accessed via /.netlify/functions/
+export const API_BASE_URL = '/.netlify/functions'; // Updated for Netlify Functions
 export const SETTINGS_API_ENDPOINT = `${API_BASE_URL}/settings`;
 export const SEEN_POPUPS_API_ENDPOINT = `${API_BASE_URL}/seen-popups`;
 export const MARK_POPUP_SEEN_API_ENDPOINT = `${API_BASE_URL}/mark-popup-seen`;
