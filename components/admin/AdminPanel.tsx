@@ -20,6 +20,10 @@ interface AdminPanelProps {
 
 const VALID_PANEL_ACCENT_COLORS: NftAdDetails['accentColor'][] = ['sky', 'fuchsia', 'emerald', 'amber', 'rose'];
 
+// Type predicate function to check if a string is a valid NftAdDetails['accentColor']
+function isActualAccentColor(color: string): color is NftAdDetails['accentColor'] {
+  return (VALID_PANEL_ACCENT_COLORS as string[]).includes(color);
+}
 
 const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, currentAds, currentTwitterId }) => {
   const [twitterUserId, setTwitterUserId] = useState(DEFAULT_ADVERTISEMENT_TWITTER_USER_ID);
@@ -30,70 +34,64 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
 
 
   const initializeAds = useCallback(() => {
-    const newInitialAdSlots = Array.from({ length: MAX_ADMIN_EDITABLE_ADS }).map((_, index): NftAdDetails => {
+    const newInitialAdSlots: NftAdDetails[] = Array.from({ length: MAX_ADMIN_EDITABLE_ADS }).map((_, index): NftAdDetails => {
         const slotId = `ad_slot_${index + 1}`;
+        const foundCurrentAd = currentAds.find(ad => ad.id === slotId);
+        const defaultAdConfigForSlot = DEFAULT_NFT_ADVERTISEMENTS_LIST.find(ad => ad.id === slotId);
 
-        const foundCurrentAd: NftAdDetails | undefined = currentAds.find(ad => ad.id === slotId);
-        const defaultAdConfig: NftAdDetails | undefined = DEFAULT_NFT_ADVERTISEMENTS_LIST.find(ad => ad.id === slotId);
-
-        let name: string;
-        let supply: string;
-        let price: string;
-        let imageUrl: string;
-        let mintLink: string;
-        let active: boolean;
-        let determinedAccentColor: NftAdDetails['accentColor'] = 'sky'; // Initialize with a default valid literal
+        let adName: string;
+        let adSupply: string;
+        let adPrice: string;
+        let adImageUrl: string;
+        let adMintLink: string;
+        let adAccentColorValue: NftAdDetails['accentColor'];
+        let adActive: boolean;
 
         if (foundCurrentAd) {
-            name = foundCurrentAd.name;
-            supply = foundCurrentAd.supply;
-            price = foundCurrentAd.price;
-            imageUrl = foundCurrentAd.imageUrl;
-            mintLink = foundCurrentAd.mintLink;
-            active = foundCurrentAd.active;
-
-            if (VALID_PANEL_ACCENT_COLORS.includes(foundCurrentAd.accentColor)) {
-                determinedAccentColor = foundCurrentAd.accentColor;
-            } else if (defaultAdConfig && VALID_PANEL_ACCENT_COLORS.includes(defaultAdConfig.accentColor)) {
-                determinedAccentColor = defaultAdConfig.accentColor;
-                console.warn(`Invalid accentColor "${foundCurrentAd.accentColor}" for slot ${slotId} from currentAds. Using default's valid color: ${determinedAccentColor}.`);
-            } else {
-                determinedAccentColor = 'sky'; // Fallback already set by initialization, but explicit for clarity if needed
-                console.warn(`Invalid accentColor "${foundCurrentAd.accentColor}" for slot ${slotId} (and default's color also invalid or default missing). Using site default: ${determinedAccentColor}.`);
-            }
-        } else if (defaultAdConfig) {
-            name = defaultAdConfig.name;
-            supply = defaultAdConfig.supply;
-            price = defaultAdConfig.price;
-            imageUrl = defaultAdConfig.imageUrl;
-            mintLink = defaultAdConfig.mintLink;
-            active = defaultAdConfig.active;
-
-            if (VALID_PANEL_ACCENT_COLORS.includes(defaultAdConfig.accentColor)) {
-                determinedAccentColor = defaultAdConfig.accentColor;
-            } else {
-                determinedAccentColor = 'sky'; // Fallback already set by initialization
-                console.warn(`Invalid accentColor "${defaultAdConfig.accentColor}" in defaultAdConfig for slot ${slotId}. Using site default: ${determinedAccentColor}.`);
-            }
+            adName = foundCurrentAd.name;
+            adSupply = foundCurrentAd.supply;
+            adPrice = foundCurrentAd.price;
+            adImageUrl = foundCurrentAd.imageUrl;
+            adMintLink = foundCurrentAd.mintLink;
+            adActive = foundCurrentAd.active;
+            // Directly use accentColor from foundCurrentAd as it's already NftAdDetails['accentColor']
+            // The prop currentAds is NftAdDetails[], and App.tsx sanitizes it.
+            adAccentColorValue = foundCurrentAd.accentColor; 
+        } else if (defaultAdConfigForSlot) {
+            adName = defaultAdConfigForSlot.name;
+            adSupply = defaultAdConfigForSlot.supply;
+            adPrice = defaultAdConfigForSlot.price;
+            adImageUrl = defaultAdConfigForSlot.imageUrl;
+            adMintLink = defaultAdConfigForSlot.mintLink;
+            adActive = defaultAdConfigForSlot.active;
+            adAccentColorValue = defaultAdConfigForSlot.accentColor;
         } else {
-            name = `Ad Slot ${index + 1} (Fallback)`;
-            supply = "Supply: N/A";
-            price = "Price: N/A";
-            imageUrl = USE_PLACEHOLDER_IMAGE_URL;
-            mintLink = "#";
-            active = false; 
-            determinedAccentColor = 'sky'; // Fallback already set by initialization
-            console.warn(`No current ad or default ad configuration found for slotId ${slotId}. Using hardcoded fallback values.`);
+            // Fallback if neither currentAd nor defaultAd is found for the slot
+            adName = `Ad Slot ${index + 1} (Fallback)`;
+            adSupply = "Supply: N/A";
+            adPrice = "Price: N/A";
+            adImageUrl = USE_PLACEHOLDER_IMAGE_URL;
+            adMintLink = "#";
+            adActive = false;
+            adAccentColorValue = 'sky'; // Default valid accent color
+            console.warn(`[AdminPanel] No current ad or default ad configuration found for slotId ${slotId}. Using hardcoded fallback values.`);
         }
         
         const adData: NftAdDetails = {
-            id: slotId, name, supply, price, imageUrl, mintLink, accentColor: determinedAccentColor, active,
+            id: slotId,
+            name: adName,
+            supply: adSupply,
+            price: adPrice,
+            imageUrl: adImageUrl,
+            mintLink: adMintLink,
+            accentColor: adAccentColorValue,
+            active: adActive,
         };
-
+        
         if (adData.imageUrl && adData.imageUrl.startsWith('data:image')) {
-            setImagePreviews(prev => ({ ...prev, [slotId]: adData.imageUrl }));
+            setImagePreviews(prev => ({ ...prev, [adData.id]: adData.imageUrl }));
         } else {
-            setImagePreviews(prev => ({ ...prev, [slotId]: null }));
+            setImagePreviews(prev => ({ ...prev, [adData.id]: null }));
         }
         return adData;
     });
@@ -139,11 +137,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
           }
           break;
         case 'accentColor':
-          if (typeof value === 'string' && VALID_PANEL_ACCENT_COLORS.includes(value as NftAdDetails['accentColor'])) {
-            adToUpdate.accentColor = value as NftAdDetails['accentColor'];
+          if (typeof value === 'string' && isActualAccentColor(value)) {
+            adToUpdate.accentColor = value;
           } else if (typeof value === 'string') {
-            adToUpdate.accentColor = 'sky'; 
-            console.warn(`Invalid accent color "${value}" received, defaulting to 'sky'.`);
+            console.warn(`[AdminPanel] Invalid accentColor string "${value}" received for ad slot ${index}. Accent color not updated.`);
           }
           break;
         case 'id': 
@@ -160,7 +157,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
           }
           break;
         default:
-          console.warn(`Unhandled field in handleAdChange: ${field as string}`);
+          console.warn(`[AdminPanel] Unhandled field in handleAdChange: ${field as string}`);
           break;
       }
       
