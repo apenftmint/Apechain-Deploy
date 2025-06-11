@@ -554,7 +554,7 @@ class BlockchainService {
         this.blockTimestampCache.set(log.blockNumber, timestamp);
         if (this.blockTimestampCache.size > this.MAX_CACHE_SIZE) {
           const firstKey = this.blockTimestampCache.keys().next().value;
-          if (firstKey !== undefined) { // Check if a key was actually retrieved
+          if (firstKey !== undefined) { 
             this.blockTimestampCache.delete(firstKey);
           }
         }
@@ -570,14 +570,10 @@ class BlockchainService {
         console.debug(`Could not fetch collection name for ${contractAddress} on ${sourceProviderUrl} (tx: ${txHash}). Error: ${e.message}`);
       }
       
-      // Owner counting logic removed entirely from here
-      // const ownerCount = 0; // No longer needed
-
       onMintCallback({
         txHash, contractAddress, tokenId, collectionName, timestamp,
         blockNumber: log.blockNumber, logIndex: log.index,
         tokenImagePlaceholderUrl: `https://picsum.photos/seed/${contractAddress}${tokenId}/64`,
-        // ownerCount, // REMOVED
         isFree, 
         valueWei, 
       });
@@ -634,7 +630,6 @@ class BlockchainService {
     this.activeWssProvider = null;
 
     this.blockTimestampCache.clear();
-    // this.collectionOwnerDetailsCache.clear(); // REMOVED
     this.lastPolledBlock = -1; 
     this.currentHttpPollingIntervalMs = DEFAULT_HTTP_POLLING_INTERVAL_MS;
 
