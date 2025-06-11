@@ -112,4 +112,3 @@ const NftAdvertisementPoster: React.FC<NftAdvertisementPosterProps> = ({ adList 
 };
 
 export default NftAdvertisementPoster;
-    
