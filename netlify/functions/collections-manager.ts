@@ -14,14 +14,16 @@ interface AppTableDisplayMintData extends MintData {
 }
 
 // --- Environment Variables (assumed to be set in Netlify) ---
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO_OWNER = process.env.GITHUB_REPO_OWNER;
-const GITHUB_REPO_NAME = process.env.GITHUB_REPO_NAME;
-const GITHUB_REPO_BRANCH = process.env.GITHUB_REPO_BRANCH;
-const GITHUB_FILE_PATH = process.env.GITHUB_FILE_PATH;
-const NETLIFY_FUNCTION_RPC_URL = process.env.NETLIFY_FUNCTION_RPC_URL;
+const GITHUB_TOKEN_ENV = process.env.GITHUB_TOKEN;
+const GITHUB_REPO_OWNER_ENV = process.env.GITHUB_REPO_OWNER;
+const GITHUB_REPO_NAME_ENV = process.env.GITHUB_REPO_NAME;
+const GITHUB_REPO_BRANCH_ENV = process.env.GITHUB_REPO_BRANCH;
+const GITHUB_FILE_PATH_ENV = process.env.GITHUB_FILE_PATH;
+const NETLIFY_FUNCTION_RPC_URL_ENV = process.env.NETLIFY_FUNCTION_RPC_URL;
 
 const twentyFourHoursInSeconds = 24 * 60 * 60;
+const USER_AGENT = `${GITHUB_REPO_OWNER_ENV || 'netlify-function-user'}-collections-manager`;
+
 
 // --- Helper: Basic Collection Analysis (simplified from client-side service) ---
 async function analyzeNewMint(mintInput: MintData, rpcUrl: string): Promise<AppTableDisplayMintData> {
@@ -122,23 +124,33 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
   console.log(`[${handlerInvocationTime}] --- collections-manager invoked ---`);
   console.log(`[${handlerInvocationTime}] HTTP Method: ${event.httpMethod}`);
 
-  if (!GITHUB_TOKEN || !GITHUB_REPO_OWNER || !GITHUB_REPO_NAME || !GITHUB_REPO_BRANCH || !GITHUB_FILE_PATH) {
-    console.error(`[${Date.now()}] Config Error: Missing one or more GitHub environment variables.`);
+  // Detailed Environment Variable Logging
+  console.log(`[${Date.now()}] Env Var Check - GITHUB_TOKEN is set: ${!!GITHUB_TOKEN_ENV}`);
+  if (GITHUB_TOKEN_ENV) {
+      console.log(`[${Date.now()}] Env Var Check - GITHUB_TOKEN starts with: ${GITHUB_TOKEN_ENV.substring(0, Math.min(5, GITHUB_TOKEN_ENV.length))}`);
+  }
+  console.log(`[${Date.now()}] Env Var Check - GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER_ENV}`);
+  console.log(`[${Date.now()}] Env Var Check - GITHUB_REPO_NAME: ${GITHUB_REPO_NAME_ENV}`);
+  console.log(`[${Date.now()}] Env Var Check - GITHUB_REPO_BRANCH: ${GITHUB_REPO_BRANCH_ENV}`);
+  console.log(`[${Date.now()}] Env Var Check - GITHUB_FILE_PATH: ${GITHUB_FILE_PATH_ENV}`);
+  
+
+  if (!GITHUB_TOKEN_ENV || !GITHUB_REPO_OWNER_ENV || !GITHUB_REPO_NAME_ENV || !GITHUB_REPO_BRANCH_ENV || !GITHUB_FILE_PATH_ENV) {
+    console.error(`[${Date.now()}] Config Error: Missing one or more GitHub environment variables. Check Netlify function logs above this message for details on which might be missing.`);
     return { statusCode: 500, body: JSON.stringify({ message: "Server configuration error: Missing GitHub credentials." }) };
   }
-  const githubApiUrl = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/contents/${GITHUB_FILE_PATH}`;
+  const githubApiUrl = `https://api.github.com/repos/${GITHUB_REPO_OWNER_ENV}/${GITHUB_REPO_NAME_ENV}/contents/${GITHUB_FILE_PATH_ENV}`;
 
 
   if (event.httpMethod === "GET") {
     const getStartTime = Date.now();
-    console.log(`[${getStartTime}] GET: Processing GET request. Fetching from GitHub API: ${githubApiUrl}?ref=${GITHUB_REPO_BRANCH}`);
+    console.log(`[${getStartTime}] GET: Processing GET request. Fetching from GitHub API: ${githubApiUrl}?ref=${GITHUB_REPO_BRANCH_ENV}`);
     try {
-      const response = await fetch(`${githubApiUrl}?ref=${GITHUB_REPO_BRANCH}`, {
+      const response = await fetch(`${githubApiUrl}?ref=${GITHUB_REPO_BRANCH_ENV}`, {
         headers: { 
-            'Authorization': `token ${GITHUB_TOKEN}`,
+            'Authorization': `token ${GITHUB_TOKEN_ENV}`,
             'Accept': 'application/vnd.github.v3+json',
-            // It's good practice to send a User-Agent
-            'User-Agent': `${GITHUB_REPO_OWNER}-netlify-function` 
+            'User-Agent': USER_AGENT
         }
       });
 
@@ -183,7 +195,6 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         statusCode: 200,
         headers: { 
             'Content-Type': 'application/json', 
-            // Ensure browsers & proxies don't cache this API-fetched data aggressively
             'Cache-Control': 'private, no-cache, no-store, must-revalidate',
             'Pragma': 'no-cache',
             'Expires': '0'
@@ -198,9 +209,10 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
   } else if (event.httpMethod === "POST") {
     const postStartTime = Date.now();
     console.log(`[${postStartTime}] POST: Processing POST request to update vaa.json...`);
-
-    // GITHUB env vars already checked at the top. Check RPC_URL for POST.
-    if (!NETLIFY_FUNCTION_RPC_URL) {
+    
+    // Log RPC URL specifically for POST
+    console.log(`[${Date.now()}] Env Var Check - NETLIFY_FUNCTION_RPC_URL is set for POST: ${!!NETLIFY_FUNCTION_RPC_URL_ENV}`);
+    if (!NETLIFY_FUNCTION_RPC_URL_ENV) {
       console.error(`[${Date.now()}] POST Error: Missing NETLIFY_FUNCTION_RPC_URL environment variable.`);
       return { statusCode: 500, body: JSON.stringify({ message: "Server configuration error: Missing RPC URL." }) };
     }
@@ -221,12 +233,12 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
     }
 
     try {
-      console.log(`[${Date.now()}] POST: Fetching current vaa.json from ${githubApiUrl}?ref=${GITHUB_REPO_BRANCH}`);
-      const currentFileResponse = await fetch(`${githubApiUrl}?ref=${GITHUB_REPO_BRANCH}`, {
+      console.log(`[${Date.now()}] POST: Fetching current vaa.json from ${githubApiUrl}?ref=${GITHUB_REPO_BRANCH_ENV}`);
+      const currentFileResponse = await fetch(`${githubApiUrl}?ref=${GITHUB_REPO_BRANCH_ENV}`, {
         headers: { 
-            'Authorization': `token ${GITHUB_TOKEN}`, 
+            'Authorization': `token ${GITHUB_TOKEN_ENV}`, 
             'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': `${GITHUB_REPO_OWNER}-netlify-function`
+            'User-Agent': USER_AGENT
         }
       });
 
@@ -256,7 +268,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
       }
       
       console.log(`[${Date.now()}] POST: Analyzing new mint for ${newMintInput.contractAddress}...`);
-      const analyzedNewMint = await analyzeNewMint(newMintInput, NETLIFY_FUNCTION_RPC_URL);
+      const analyzedNewMint = await analyzeNewMint(newMintInput, NETLIFY_FUNCTION_RPC_URL_ENV);
       console.log(`[${Date.now()}] POST: Analysis complete for ${analyzedNewMint.collectionName}.`);
 
       const twentyFourHoursAgoUnix = Math.floor(Date.now() / 1000) - twentyFourHoursInSeconds;
@@ -285,7 +297,7 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
       const commitBody: any = {
         message: commitMessage,
         content: newContentBase64,
-        branch: GITHUB_REPO_BRANCH,
+        branch: GITHUB_REPO_BRANCH_ENV,
       };
       if (fileExists && currentSha) {
         commitBody.sha = currentSha; 
@@ -295,10 +307,10 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
       const updateResponse = await fetch(githubApiUrl, {
         method: 'PUT',
         headers: { 
-            'Authorization': `token ${GITHUB_TOKEN}`, 
+            'Authorization': `token ${GITHUB_TOKEN_ENV}`, 
             'Accept': 'application/vnd.github.v3+json', 
             'Content-Type': 'application/json',
-            'User-Agent': `${GITHUB_REPO_OWNER}-netlify-function`
+            'User-Agent': USER_AGENT
         },
         body: JSON.stringify(commitBody),
       });
@@ -331,3 +343,4 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
 };
 
 export { handler };
+
