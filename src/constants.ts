@@ -67,8 +67,8 @@ export const LOCAL_STORAGE_KEY = 'apechainNftMintTrackerData_v4';
 export const LIVE_FREE_MINTS_CACHE_KEY = 'apechainLiveFreeMintsCache_v1';
 export const LIVE_PAID_MINTS_CACHE_KEY = 'apechainLivePaidMintsCache_v1';
 export const SOUND_ENABLED_PREFERENCE_KEY = 'apechainSoundEnabledPreference_v3';
-// ANALYSIS_RESULTS_CACHE_KEY, TABLE_DATA_CACHE_KEY, ADMIN_SESSION_KEY, 
-// ANALYSIS_CACHE_DURATION_MS, INITIAL_TABLE_COLLECTIONS_TO_PROCESS have been removed.
+// ADMIN_SESSION_KEY, ANALYSIS_RESULTS_CACHE_KEY, TABLE_DATA_CACHE_KEY, 
+// INITIAL_TABLE_COLLECTIONS_TO_PROCESS, ANALYSIS_CACHE_DURATION_MS have been removed.
 
 
 // --- Advertisement Settings ---

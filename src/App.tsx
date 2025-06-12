@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
-// import { formatUnits } from 'ethers'; // formatUnits is used by collections-manager.ts
+// import { formatUnits } from 'ethers'; // formatUnits is used by collections-manager.ts if it calculates price there
 import { MintData, CollectionAnalysisResult, FinalCollectionStatus } from './types';
 import { blockchainService } from './services/blockchainService';
 // Client-side CollectionAnalyzerService is no longer used for the main table data
@@ -66,7 +66,7 @@ const getPageFromHash = (hash: string): string | null => {
 const App: React.FC = () => {
   const [liveFreeMints, setLiveFreeMints] = useState<MintData[]>([]);
   const [livePaidMints, setLivePaidMints] = useState<MintData[]>([]);
-  const [allTimeMints, setAllTimeMints] = useState<MintData[]>([]);
+  const [allTimeMints, setAllTimeMints] = useState<MintData[]>([]); // Still used for localStorage backup
 
   const [isLoading, setIsLoading] = useState<boolean>(true); // For blockchain service connection
   const [error, setError] = useState<string | null>(null);
@@ -78,7 +78,7 @@ const App: React.FC = () => {
 
   const [tableData, setTableData] = useState<AppTableDisplayMintData[]>([]);
   const [tableFilter, setTableFilter] = useState<'all' | 'free' | 'paid'>('all');
-  const [isFetchingTableData, setIsFetchingTableData] = useState<boolean>(true); // Initially true
+  const [isFetchingTableData, setIsFetchingTableData] = useState<boolean>(true); // Initially true for API call
   const [tableDataError, setTableDataError] = useState<string | null>(null);
   const [tableItemsPerPage, setTableItemsPerPage] = useState<number>(10);
 
@@ -200,11 +200,13 @@ const App: React.FC = () => {
         }
         const data: AppTableDisplayMintData[] = await response.json();
         console.log(`fetchUniqueCollectionsTableData: Received ${data.length} collections from API.`);
+        alert(`Successfully fetched ${data.length} unique collections from the API for the table.`); // Verification Alert
         setTableData(data.sort((a,b) => b.timestamp - a.timestamp));
     } catch (e: any) {
         console.error("Failed to fetch unique collections table data (from API endpoint):", e);
         setTableDataError(`Error loading collections: ${e.message}. Please try refreshing.`);
         setTableData([]); 
+        alert(`Error fetching unique collections: ${e.message}`); // Verification Alert for error
     } finally {
         setIsFetchingTableData(false);
         console.log("fetchUniqueCollectionsTableData (API) finished. isFetchingTableData:", false);
@@ -214,7 +216,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const initialHash = window.location.hash || '#/';
     setCurrentRoute(initialHash);
-    // setIsAdminLoggedIn(localStorage.getItem(ADMIN_SESSION_KEY) === 'true'); // Removed, admin state is session-only
+    // setIsAdminLoggedIn(localStorage.getItem(ADMIN_SESSION_KEY) === 'true'); // Removed, admin state is session-only and initialized to false
 
     const loadAllInitialData = async () => {
         console.log("loadAllInitialData: Starting all initial fetches.");
@@ -239,7 +241,7 @@ const App: React.FC = () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Removed loadAdminSettings, loadSeenPopups, fetchUniqueCollectionsTableData from deps as they are stable
+  }, []); 
 
   useEffect(() => {
     document.body.style.paddingTop = `${calculateBodyPaddingTop(effectiveTwitterId, effectiveAds)}px`;
@@ -249,7 +251,7 @@ const App: React.FC = () => {
     const pageId = getPageFromHash(currentRoute);
     let newHashTarget: string | null = null;
 
-    if (initialAppSetupComplete) { // Only attempt redirects after initial data loads are done
+    if (initialAppSetupComplete) { 
         if (pageId === CONFIG_LOGIN_PAGE_ID && isAdminLoggedIn) {
             newHashTarget = `#/?${PAGE_QUERY_PARAM}=${CONFIG_PANEL_PAGE_ID}`;
         } else if (pageId === CONFIG_PANEL_PAGE_ID && !isAdminLoggedIn) {
@@ -372,8 +374,7 @@ const App: React.FC = () => {
     };
   }, [handleNewMint, handleError, handleSetupComplete]);
 
- // Removed client-side table data preparation useEffect
- // Removed useEffect that updated tableData based on analysisStatusMap
+ // Client-side table data preparation useEffect and analysisStatusMap useEffect have been REMOVED.
 
  useEffect(() => { // Popup and sound notification logic
     if (isInitialLoadRef.current && initialAppSetupComplete && !isLoading && !isFetchingTableData && !isAdminSettingsLoading && !isSeenPopupsLoading) {
@@ -448,14 +449,18 @@ const App: React.FC = () => {
 
   const handleAdminLoginSuccess = () => {
     setIsAdminLoggedIn(true);
+    // No longer need to reload settings here as panel takes current state
+    // If desired, could trigger a re-fetch for settings after login, but panel uses props now
   };
 
   const handleAdminLogout = () => {
     setIsAdminLoggedIn(false);
+    // No explicit action needed for settings here as panel will re-render based on isAdminLoggedIn
+    // and App.tsx uses default settings when not logged in or settings not found.
   };
 
   const handleAdminSettingsSave = () => {
-    loadAdminSettings(true); 
+    loadAdminSettings(true); // Re-fetch settings from backend after save attempt
     alert("Admin settings save attempt sent to server! Changes will be reflected if successful.");
   }
 
@@ -502,7 +507,7 @@ const App: React.FC = () => {
             <p className="text-slate-300">{error || "Could not connect to the ApeChain network."}</p>
           </div>
         )}
-        {isLoading && ( 
+        {isLoading && ( // This isLoading is for the blockchainService connection
           <div className="flex flex-col items-center justify-center text-center p-6 w-full max-w-4xl mx-auto mb-6">
             <LoadingSpinner />
             <p className="mt-4 text-lg text-slate-300">{providerOk ? "Connecting to ApeChain for live mints..." : "Initializing blockchain connection..."}</p>
@@ -526,7 +531,7 @@ const App: React.FC = () => {
             <p className="text-slate-300">No live mints detected yet.</p>
           </div>
         )}
-        { !isLoading && ( 
+        { !isLoading && ( // Only render main content layout if blockchain service is not in its initial loading state
           <div className="w-full max-w-8xl mx-auto flex flex-col md:flex-row md:space-x-6 lg:space-x-8 mt-4">
             <div className="w-full md:w-2/5 lg:w-1/3 flex flex-col space-y-8 mb-8 md:mb-0">
               <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
@@ -579,12 +584,12 @@ const App: React.FC = () => {
                         ))}
                     </div>
                 </div>
-                {isFetchingTableData && !initialAppSetupComplete && ( 
+                {isFetchingTableData && !initialAppSetupComplete && ( // Show initial loading for table
                     <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
                         <LoadingSpinner /><p className="mt-3">Loading unique collections from API...</p>
                     </div>
                 )}
-                 {isFetchingTableData && initialAppSetupComplete && ( 
+                 {isFetchingTableData && initialAppSetupComplete && ( // Show refresh loading for table
                     <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
                         <LoadingSpinner /><p className="mt-3">Refreshing collections data...</p>
                     </div>
@@ -601,8 +606,8 @@ const App: React.FC = () => {
                 {!isFetchingTableData && !tableDataError && getFilteredAndPaginatedTableData().length === 0 && (
                   <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
                     {tableData.length === 0 
-                        ? <p>No collections from the last 24 hours found (via API), or an API error occurred.</p> 
-                        : <p>No collections match the current "{tableFilter}" filter from the available data (11 total from API).</p>
+                        ? <p>No collections from the last 24 hours found (via API). This could be due to an API error, no recent data in vaa.json, or all data being older than 24 hours.</p> 
+                        : <p>No collections match the current "{tableFilter}" filter from the available data ({tableData.length} total from API).</p>
                     }
                   </div>
                 )}
