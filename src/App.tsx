@@ -33,7 +33,6 @@ import {
     LIVE_FREE_MINTS_CACHE_KEY,
     LIVE_PAID_MINTS_CACHE_KEY,
     SOUND_ENABLED_PREFERENCE_KEY
-    // ADMIN_SESSION_KEY, ANALYSIS_RESULTS_CACHE_KEY, TABLE_DATA_CACHE_KEY, etc. removed from imports as they are deprecated
 } from './constants';
 
 const AdminLogin = lazy(() => import('./components/admin/AdminLogin'));
@@ -215,6 +214,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const initialHash = window.location.hash || '#/';
     setCurrentRoute(initialHash);
+    // setIsAdminLoggedIn(localStorage.getItem(ADMIN_SESSION_KEY) === 'true'); // Removed, admin state is session-only
 
     const loadAllInitialData = async () => {
         console.log("loadAllInitialData: Starting all initial fetches.");
@@ -239,7 +239,7 @@ const App: React.FC = () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []); // Removed loadAdminSettings, loadSeenPopups, fetchUniqueCollectionsTableData from deps as they are stable
 
   useEffect(() => {
     document.body.style.paddingTop = `${calculateBodyPaddingTop(effectiveTwitterId, effectiveAds)}px`;
@@ -372,13 +372,14 @@ const App: React.FC = () => {
     };
   }, [handleNewMint, handleError, handleSetupComplete]);
 
+ // Removed client-side table data preparation useEffect
+ // Removed useEffect that updated tableData based on analysisStatusMap
 
  useEffect(() => { // Popup and sound notification logic
     if (isInitialLoadRef.current && initialAppSetupComplete && !isLoading && !isFetchingTableData && !isAdminSettingsLoading && !isSeenPopupsLoading) {
       isInitialLoadRef.current = false; // Initial setup is complete
     }
 
-    // Guard: Don't run notifications until all initial loading states are false
     if (isInitialLoadRef.current || !initialAppSetupComplete || isSeenPopupsLoading || isAdminSettingsLoading || isFetchingTableData || isLoading) {
         if (!userInteracted && speechSynthesis.speaking) speechSynthesis.cancel();
         if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
@@ -386,12 +387,10 @@ const App: React.FC = () => {
     }
 
     let notificationProcessed = false;
-    for (const mint of tableData) { // Iterate over API-sourced tableData
+    for (const mint of tableData) { 
         if (playedNotificationForContractsRef.current.has(mint.contractAddress) || notificationProcessed) continue;
 
-        // Only trigger for free mints with OK analysis
         if (mint.isFree && mint.analysis && mint.analysis.finalStatus === 'OK') {
-            // Add to active popups if not already there
             setActivePopups(prev => prev.some(p => p.txHash === mint.txHash && p.logIndex === mint.logIndex) ? prev : [...prev, { ...mint, popupId: `${mint.contractAddress}-${mint.tokenId}-${Date.now()}` }]);
 
             if (userInteracted && soundEnabled && tableFilter === 'free') {
@@ -405,10 +404,9 @@ const App: React.FC = () => {
                 utteranceRef.current.onerror = e => { if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current); console.error('Speech error:', e.error);};
                 speechSynthesis.speak(utteranceRef.current);
                 speechTimeoutRef.current = window.setTimeout(() => { if (speechSynthesis.speaking && utteranceRef.current?.text === text) speechSynthesis.cancel(); }, 10000);
-                notificationProcessed = true; // Process only one sound notification per tableData update cycle
+                notificationProcessed = true; 
             }
             playedNotificationForContractsRef.current.add(mint.contractAddress);
-            // Notify backend that this popup has been "seen"
             fetch(MARK_POPUP_SEEN_API_ENDPOINT, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -422,7 +420,7 @@ const App: React.FC = () => {
         }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableData, userInteracted, soundEnabled, tableFilter, initialAppSetupComplete, isSeenPopupsLoading, isAdminSettingsLoading, isFetchingTableData, isLoading]); // Dependencies for popup/sound
+  }, [tableData, userInteracted, soundEnabled, tableFilter, initialAppSetupComplete, isSeenPopupsLoading, isAdminSettingsLoading, isFetchingTableData, isLoading]);
 
   const handlePopupClose = (popupId: string) => setActivePopups(prev => prev.filter(p => p.popupId !== popupId));
 
@@ -449,18 +447,15 @@ const App: React.FC = () => {
   };
 
   const handleAdminLoginSuccess = () => {
-    setIsAdminLoggedIn(true); 
-    // No need to reload settings here, they are loaded initially.
-    // Panel will show current state, save triggers reload.
+    setIsAdminLoggedIn(true);
   };
 
   const handleAdminLogout = () => {
-    setIsAdminLoggedIn(false); 
-    // No need to reload settings here. Defaults take effect.
+    setIsAdminLoggedIn(false);
   };
 
   const handleAdminSettingsSave = () => {
-    loadAdminSettings(true); // Force reload settings from backend after save attempt
+    loadAdminSettings(true); 
     alert("Admin settings save attempt sent to server! Changes will be reflected if successful.");
   }
 
@@ -472,7 +467,7 @@ const App: React.FC = () => {
 
   const renderMainContent = () => (
     <>
-      { (isAdminSettingsLoading && !initialAppSetupComplete) && ( // Show admin loading only if initial setup is also not done
+      { (isAdminSettingsLoading && !initialAppSetupComplete) && ( 
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-[200]">
             <LoadingSpinner /><p className="ml-3 text-slate-300">Loading site configuration...</p>
         </div>
@@ -482,7 +477,7 @@ const App: React.FC = () => {
               <p className="text-slate-200">{adminSettingsError}</p>
           </div>
       )}
-       { (isSeenPopupsLoading && !initialAppSetupComplete) && ( // Show seen popups loading similarly
+       { (isSeenPopupsLoading && !initialAppSetupComplete) && ( 
         <div className="fixed inset-x-0 top-1/2 transform -translate-y-1/2 bg-slate-900/50 flex items-center justify-center z-[190] p-2 text-sm">
             <LoadingSpinner /><p className="ml-2 text-slate-300">Loading popup history...</p>
         </div>
@@ -493,7 +488,6 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* Ads and Popups */}
       {(!isAdminSettingsLoading && ADVERTISEMENT_TEXT && effectiveTwitterId) && <AdvertisementBanner text={ADVERTISEMENT_TEXT} link={activeBannerLink} />}
       {(!isAdminSettingsLoading && visibleAds.length > 0) && <NftAdvertisementPoster adList={visibleAds} />}
 
@@ -502,14 +496,13 @@ const App: React.FC = () => {
       ))}
 
       <main className="w-full p-4 md:p-8 flex-grow">
-        {/* Blockchain Connection Status & Live Feeds */}
         {!providerOk && !isLoading && (
           <div className="w-full max-w-4xl mx-auto text-center p-6 bg-red-800/50 rounded-xl shadow-2xl border border-red-600 mb-6 backdrop-blur-sm">
             <h2 className="text-2xl font-semibold text-red-300 mb-3">Connection Error</h2>
             <p className="text-slate-300">{error || "Could not connect to the ApeChain network."}</p>
           </div>
         )}
-        {isLoading && ( // This isLoading is for blockchainService
+        {isLoading && ( 
           <div className="flex flex-col items-center justify-center text-center p-6 w-full max-w-4xl mx-auto mb-6">
             <LoadingSpinner />
             <p className="mt-4 text-lg text-slate-300">{providerOk ? "Connecting to ApeChain for live mints..." : "Initializing blockchain connection..."}</p>
@@ -533,10 +526,8 @@ const App: React.FC = () => {
             <p className="text-slate-300">No live mints detected yet.</p>
           </div>
         )}
-        {/* Main Content Layout: Live Feeds and Unique Collections Table */}
-        { !isLoading && ( // Only show main layout if blockchain service is not in its initial loading state
+        { !isLoading && ( 
           <div className="w-full max-w-8xl mx-auto flex flex-col md:flex-row md:space-x-6 lg:space-x-8 mt-4">
-            {/* Live Feeds Column */}
             <div className="w-full md:w-2/5 lg:w-1/3 flex flex-col space-y-8 mb-8 md:mb-0">
               <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
                 <h2 className="text-3xl font-semibold text-center md:text-left text-green-400 mb-4 drop-shadow-[0_1px_1px_rgba(0,255,0,0.3)]">
@@ -563,11 +554,10 @@ const App: React.FC = () => {
                 )}
               </div>
             </div>
-            {/* Unique Collections Table Column */}
             <div className="w-full md:w-3/5 lg:w-2/3">
               <section className="p-4 sm:p-6 bg-slate-800/70 rounded-xl shadow-2xl h-full border border-slate-700 backdrop-blur-sm flex flex-col">
                 <div className="flex flex-col sm:flex-row justify-between items-start mb-4">
-                  <h2 className="text-2xl sm:text-3xl font-semibold text-teal-400 mb-3 sm:mb-0">Unique Collections <span className="text-sm text-slate-400">(Last 24h, from VAA.json)</span></h2>
+                  <h2 className="text-2xl sm:text-3xl font-semibold text-teal-400 mb-3 sm:mb-0">Unique Collections <span className="text-sm text-slate-400">(Last 24h, from API)</span></h2>
                   {tableFilter === 'free' && (
                       <button onClick={toggleSound} className={`px-3 py-2 text-xs sm:text-sm rounded-lg shadow-lg ${soundEnabled ? 'bg-red-500' : 'bg-sky-500'} text-white`}>
                           Sound Alerts: {soundEnabled ? 'ON' : 'OFF'}
@@ -589,13 +579,12 @@ const App: React.FC = () => {
                         ))}
                     </div>
                 </div>
-                {/* Table Display Logic */}
-                {isFetchingTableData && !initialAppSetupComplete && ( // Initial load for table data
+                {isFetchingTableData && !initialAppSetupComplete && ( 
                     <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
                         <LoadingSpinner /><p className="mt-3">Loading unique collections from API...</p>
                     </div>
                 )}
-                 {isFetchingTableData && initialAppSetupComplete && ( // Subsequent fetches (e.g., after POST)
+                 {isFetchingTableData && initialAppSetupComplete && ( 
                     <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
                         <LoadingSpinner /><p className="mt-3">Refreshing collections data...</p>
                     </div>
@@ -611,9 +600,9 @@ const App: React.FC = () => {
                 )}
                 {!isFetchingTableData && !tableDataError && getFilteredAndPaginatedTableData().length === 0 && (
                   <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                    {tableData.length === 0 // Check raw API data length first
-                        ? <p>No collections from the last 24 hours found (via API), or an error occurred.</p> 
-                        : <p>No collections match the current "{tableFilter}" filter from the available data.</p>
+                    {tableData.length === 0 
+                        ? <p>No collections from the last 24 hours found (via API), or an API error occurred.</p> 
+                        : <p>No collections match the current "{tableFilter}" filter from the available data (11 total from API).</p>
                     }
                   </div>
                 )}
@@ -641,14 +630,12 @@ const App: React.FC = () => {
     </div>
   );
 
-  // Determine content based on route and login state, ensuring initial setup is complete for main content
   if (!initialAppSetupComplete && (currentPageId === CONFIG_LOGIN_PAGE_ID || currentPageId === CONFIG_PANEL_PAGE_ID)) {
-    // If trying to access admin pages before full setup, show a generic loading
     contentToRender = showRedirectingMessage("Initializing site configuration...");
-  } else if (!initialAppSetupComplete && !currentPageId) { // If on main page before setup
+  } else if (!initialAppSetupComplete && !currentPageId) { 
     contentToRender = showRedirectingMessage("Initializing ApeChain Mint Tracker...");
   }
-  else if (isAdminLoggedIn) { // User is logged in
+  else if (isAdminLoggedIn) { 
       if (currentPageId === CONFIG_PANEL_PAGE_ID) {
           contentToRender = (
             <Suspense fallback={showRedirectingMessage("Loading Admin Panel...")}>
@@ -660,21 +647,21 @@ const App: React.FC = () => {
               />
             </Suspense>
           );
-      } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) { // Logged in but on login page
-          contentToRender = showRedirectingMessage("Redirecting to panel..."); // Will be redirected by useEffect
-      } else { // Logged in, on main content page
+      } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) { 
+          contentToRender = showRedirectingMessage("Redirecting to panel..."); 
+      } else { 
           contentToRender = renderMainContent();
       }
-  } else { // User is NOT logged in
+  } else { 
       if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
           contentToRender = (
             <Suspense fallback={showRedirectingMessage("Loading Admin Login...")}>
               <AdminLogin onLoginSuccess={handleAdminLoginSuccess} />
             </Suspense>
           );
-      } else if (currentPageId === CONFIG_PANEL_PAGE_ID) { // Not logged in but on admin panel page
-          contentToRender = showRedirectingMessage("Redirecting to login..."); // Will be redirected by useEffect
-      } else { // Not logged in, on main content page
+      } else if (currentPageId === CONFIG_PANEL_PAGE_ID) { 
+          contentToRender = showRedirectingMessage("Redirecting to login..."); 
+      } else { 
           contentToRender = renderMainContent();
       }
   }
@@ -683,7 +670,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-slate-100 flex flex-col items-center selection:bg-fuchsia-500 selection:text-white flex-grow">
       <header className="app-main-header flex justify-between items-center px-4">
-          <div></div> {/* Spacer for centering title */}
+          <div></div> 
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-fuchsia-500 to-indigo-600 pb-1 drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
             {APP_TITLE}
           </h1>
@@ -691,7 +678,6 @@ const App: React.FC = () => {
             Site Config
           </a>
       </header>
-      {/* Conditional rendering to ensure initial setup doesn't block admin pages if directly navigated */}
       { (initialAppSetupComplete || currentPageId === CONFIG_LOGIN_PAGE_ID || currentPageId === CONFIG_PANEL_PAGE_ID)
         ? contentToRender
         : showRedirectingMessage("Initializing ApeChain Mint Tracker...")

@@ -67,7 +67,8 @@ export const LOCAL_STORAGE_KEY = 'apechainNftMintTrackerData_v4';
 export const LIVE_FREE_MINTS_CACHE_KEY = 'apechainLiveFreeMintsCache_v1';
 export const LIVE_PAID_MINTS_CACHE_KEY = 'apechainLivePaidMintsCache_v1';
 export const SOUND_ENABLED_PREFERENCE_KEY = 'apechainSoundEnabledPreference_v3';
-// ADMIN_SESSION_KEY, ANALYSIS_RESULTS_CACHE_KEY, TABLE_DATA_CACHE_KEY have been removed.
+// ANALYSIS_RESULTS_CACHE_KEY, TABLE_DATA_CACHE_KEY, ADMIN_SESSION_KEY, 
+// ANALYSIS_CACHE_DURATION_MS, INITIAL_TABLE_COLLECTIONS_TO_PROCESS have been removed.
 
 
 // --- Advertisement Settings ---
@@ -190,7 +191,3 @@ export const SETTINGS_API_ENDPOINT = `${API_BASE_URL}/settings`;
 export const SEEN_POPUPS_API_ENDPOINT = `${API_BASE_URL}/seen-popups`;
 export const MARK_POPUP_SEEN_API_ENDPOINT = `${API_BASE_URL}/mark-popup-seen`;
 export const UNIQUE_COLLECTIONS_API_ENDPOINT = `${API_BASE_URL}/collections-manager`;
-
-// --- Collections Manager Data Source ---
-// Removed: export const COLLECTIONS_MANAGER_GITHUB_URL = "https://raw.githubusercontent.com/apenftmint/data/main/vaa.json";
-// The collections-manager Netlify function now uses environment variables to construct the GitHub API URL.
