@@ -2,20 +2,23 @@
 export const APP_TITLE = "ApeChain Live NFT Mints";
 
 // --- Public RPC Configuration for ApeChain Network ---
+// Simplified to primary recommended RPCs for client-side use
 export const PUBLIC_APECHAIN_HTTP_RPC_URLS = [
   'https://rpc.apechain.com/http',
-  'https://apechain.calderachain.xyz/http',
-  'https://33139.rpc.thirdweb.com',
-  'https://apechain.drpc.org',
-  'https://node.histori.xyz/apechain-mainnet/8ry9f6t9dct1se2hlagxnd9n2a',
-  'https://apechain-mainnet.public.blastapi.io',
+  // Additional reliable HTTP RPCs can be added here if needed in the future
+  // 'https://apechain.calderachain.xyz/http',
+  // 'https://33139.rpc.thirdweb.com',
+  // 'https://apechain.drpc.org',
+  // 'https://node.histori.xyz/apechain-mainnet/8ry9f6t9dct1se2hlagxnd9n2a',
+  // 'https://apechain-mainnet.public.blastapi.io',
 ];
 
 export const PUBLIC_APECHAIN_WSS_RPC_URLS = [
   'wss://rpc.apechain.com/ws',
-  'wss://apechain.calderachain.xyz/ws',
-  'wss://apechain.drpc.org',
-  'wss://rpc.curtis.apechain.com/ws',
+  // Additional reliable WSS RPCs can be added here if needed in the future
+  // 'wss://apechain.calderachain.xyz/ws',
+  // 'wss://apechain.drpc.org',
+  // 'wss://rpc.curtis.apechain.com/ws',
 ];
 
 export const APECHAIN_EXPLORER_URL = "https://apechain.calderaexplorer.xyz";
@@ -189,4 +192,5 @@ export const MARK_POPUP_SEEN_API_ENDPOINT = `${API_BASE_URL}/mark-popup-seen`;
 export const UNIQUE_COLLECTIONS_API_ENDPOINT = `${API_BASE_URL}/collections-manager`;
 
 // --- Collections Manager Data Source ---
-export const COLLECTIONS_MANAGER_GITHUB_URL = "https://raw.githubusercontent.com/apenftmint/data/main/vaa.json";
+// Removed: export const COLLECTIONS_MANAGER_GITHUB_URL = "https://raw.githubusercontent.com/apenftmint/data/main/vaa.json";
+// The collections-manager Netlify function now uses environment variables to construct the GitHub API URL.

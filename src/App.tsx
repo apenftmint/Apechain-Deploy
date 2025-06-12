@@ -619,7 +619,11 @@ const App: React.FC = () => {
                 )}
                 {!isFetchingTableData && !tableDataError && getFilteredAndPaginatedTableData().length === 0 && (
                   <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                    <p>{tableData.length > 0 ? `No collections for "${tableFilter}" filter.` : "No unique collections data found (check vaa.json)."}</p>
+                    {/* Updated message */}
+                    {tableData.length === 0 
+                        ? <p>No collections from the last 24 hours found in vaa.json.</p> 
+                        : <p>No collections match the current "{tableFilter}" filter.</p>
+                    }
                   </div>
                 )}
               </section>
