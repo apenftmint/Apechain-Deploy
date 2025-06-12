@@ -39,25 +39,21 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
         let adData: NftAdDetails;
 
         if (configFromCurrentAds) {
-            // Validate accentColor from currentAds, though it should be correct if currentAds is NftAdDetails[]
-            // The 'as any' is to help 'includes' with the union type; VALID_ACCENT_COLORS contains the valid literals.
             const validatedAccentColor = VALID_ACCENT_COLORS.includes(configFromCurrentAds.accentColor as any)
                 ? configFromCurrentAds.accentColor
                 : (configFromDefaults ? configFromDefaults.accentColor : 'sky');
             
             adData = {
                 ...configFromCurrentAds,
-                id: slotId, // Ensure the ID is the slot's ID.
+                id: slotId, 
                 accentColor: validatedAccentColor,
             };
         } else if (configFromDefaults) {
-            // accentColor from defaults is already typed correctly
             adData = { 
                 ...configFromDefaults,
-                id: slotId // Ensure the ID is the slot's ID.
+                id: slotId 
             };
         } else {
-            // Fallback if no current ad and no default ad for this slot ID
             adData = {
                 id: slotId,
                 name: `Ad Slot ${index + 1} (New)`,
@@ -65,7 +61,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
                 price: "Price: ---",
                 imageUrl: USE_PLACEHOLDER_IMAGE_URL,
                 mintLink: "#",
-                accentColor: 'sky', // Default valid accent color
+                accentColor: 'sky', 
                 active: false,
             };
         }
@@ -104,8 +100,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
             setImagePreviews(prev => ({ ...prev, [adId]: null }));
         };
         reader.readAsDataURL(file);
-    } else { // File cleared
-        handleAdChange(index, 'imageUrl', USE_PLACEHOLDER_IMAGE_URL); // Or "" for user to input URL
+    } else { 
+        handleAdChange(index, 'imageUrl', USE_PLACEHOLDER_IMAGE_URL); 
         setImagePreviews(prev => ({ ...prev, [adId]: null }));
     }
   };
@@ -115,19 +111,16 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
     if (field === 'active') {
         newAds[index] = { ...newAds[index], [field]: value as boolean };
     } else if (field === 'accentColor') {
-         // Ensure the value is a valid accent color before setting
         if (VALID_ACCENT_COLORS.includes(value as any)) {
             newAds[index] = { ...newAds[index], [field]: value as NftAdDetails['accentColor'] };
         } else {
-            // Optionally handle invalid value, e.g., revert or set to default
             console.warn(`Invalid accent color "${value}" provided for ad slot ${index + 1}. Using default.`);
-            newAds[index] = { ...newAds[index], [field]: 'sky' }; // Default to 'sky' or existing
+            newAds[index] = { ...newAds[index], [field]: 'sky' }; 
         }
     }
      else {
         newAds[index] = { ...newAds[index], [field]: value as string };
     }
-    // If imageUrl is manually changed to something not a data URL, clear preview
     if (field === 'imageUrl' && typeof value === 'string' && !value.startsWith('data:image')) {
         setImagePreviews(prev => ({ ...prev, [newAds[index].id]: null }));
     }
@@ -151,8 +144,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
             const errorData = await response.text();
             throw new Error(`Failed to save settings: ${response.status} ${response.statusText}. ${errorData}`);
         }
-        // const responseData = await response.json(); // If backend sends a confirmation
-        onSettingsSave(); // Notify App.tsx to reload settings from backend
+        onSettingsSave(); 
     } catch (e: any) {
         console.error("Error saving admin settings:", e);
         setSaveError(`Failed to save settings: ${e.message}. Please try again.`);
@@ -164,7 +156,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
   const accentColorsForSelect: NftAdDetails['accentColor'][] = ['sky', 'fuchsia', 'emerald', 'amber', 'rose'];
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-4 md:p-8 my-8 bg-slate-800/70 rounded-xl shadow-2xl border border-slate-700 backdrop-blur-sm text-slate-100">
+    <div className="flex-grow w-full max-w-4xl mx-auto p-4 md:p-8 my-8 bg-slate-800/70 rounded-xl shadow-2xl border border-slate-700 backdrop-blur-sm text-slate-100 flex flex-col">
+      {/* Added flex-grow and flex flex-col to ensure it fills space */}
       <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-600">
         <h2 className="text-3xl font-bold text-sky-400">Site Config</h2>
         <button
@@ -197,7 +190,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
         </div>
       </section>
 
-      <section>
+      <section className="flex-grow"> {/* Allow this section to take up space if ads list is long */}
         <h3 className="text-xl font-semibold text-teal-400 mb-4">NFT Advertisement Poster Slots ({MAX_ADMIN_EDITABLE_ADS} max)</h3>
         <div className="space-y-6">
           {ads.map((ad, index) => (
@@ -236,9 +229,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
                   <input 
                     type="text" 
                     id={`adImageUrl-${index}`} 
-                    value={ad.imageUrl.startsWith('data:image') ? '(Uploaded Image Data)' : ad.imageUrl} // Show placeholder if data URL
+                    value={ad.imageUrl.startsWith('data:image') ? '(Uploaded Image Data)' : ad.imageUrl} 
                     onChange={e => handleAdChange(index, 'imageUrl', e.target.value)} 
-                    disabled={ad.imageUrl.startsWith('data:image')} // Disable if image uploaded
+                    disabled={ad.imageUrl.startsWith('data:image')} 
                     className="w-full mt-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-md shadow-sm text-white placeholder-slate-400 focus:outline-none focus:ring-sky-500 focus:border-sky-500 disabled:bg-slate-600" 
                   />
                 </div>
@@ -263,7 +256,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
         </div>
       </section>
 
-      <div className="mt-8 pt-6 border-t border-slate-600 flex flex-col items-end">
+      <div className="mt-auto pt-6 border-t border-slate-600 flex flex-col items-end"> 
+      {/* Changed to mt-auto to push save button and link to bottom if content is short */}
         {saveError && <p className="text-sm text-red-400 bg-red-900/50 p-2 rounded-md border border-red-700 mb-3 w-full text-center">{saveError}</p>}
         <button
           onClick={handleSave}

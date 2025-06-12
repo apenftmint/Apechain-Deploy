@@ -70,9 +70,9 @@ export const ADMIN_SESSION_KEY = 'apechainAdminSession_v1';
 
 
 // --- Advertisement Settings ---
-export const ADVERTISEMENT_TEXT = "Want to advertise your NFT project here? Click to contact our team on X (Twitter)! Promote your mint directly to active minters!";
+export const ADVERTISEMENT_TEXT = "Want to advertise your NFT project here? Click to contact our team on X (Twitter) - (@ApeNFTmint)! Promote your mint directly to active minters!";
 export const DEFAULT_ADVERTISEMENT_TWITTER_USER_ID = "YourTwitterHandle"; // Default, admin can change
-export const ADVERTISEMENT_TWITTER_DM_URL_BASE = `https://twitter.com/intent/dm?recipient_id=`;
+export const ADVERTISEMENT_TWITTER_DM_URL_BASE = `https://x.com/ApeNFTmint?t=CVQk1LgGBL40FB7_Uuem2A&s=08`;
 
 
 export interface NftAdDetails {

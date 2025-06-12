@@ -9,6 +9,8 @@ import {
   Filter,
   Log as EthersLog,
   Provider,
+  TransactionResponse,
+  Block
 } from 'ethers';
 import { MintData } from '../types';
 import {
@@ -409,7 +411,7 @@ class BlockchainService {
             this.withRetry(() => (ep.providerInstance as JsonRpcProvider).getBlockNumber(), `HTTPPoll:getBlockNumber`, ep.url, 1, 1000)
               .catch(e => { console.warn(`[HTTP Poll] getBlockNumber failed for ${ep.url}: ${e.message}`); return Promise.reject(e); })
         );
-        currentBlockNumber = await customPromiseAny(blockNumberPromises);
+        currentBlockNumber = await customPromiseAny<number>(blockNumberPromises);
     } catch (error) {
         console.error("[HTTP Poll] Failed to get block number from all raced HTTP providers:", error);
         if (this.onErrorCallbackGlobal) this.onErrorCallbackGlobal("Failed to determine current block number via HTTP polling.", true);
@@ -509,7 +511,8 @@ class BlockchainService {
       const tx = await this.withRetry(
         () => sourceProvider.getTransaction(txHash),
         `getTransaction ${txHash}`, sourceProviderUrl
-      );
+      ) as TransactionResponse | null;
+
       if (!tx) {
         console.debug(`Transaction ${txHash} (from ${sourceProviderUrl}) not found or null. Skipping log.`);
         return;
@@ -545,7 +548,7 @@ class BlockchainService {
       if (this.blockTimestampCache.has(log.blockNumber)) {
         timestamp = this.blockTimestampCache.get(log.blockNumber)!;
       } else {
-        const block = await this.withRetry(() => sourceProvider.getBlock(log.blockNumber), `getBlock ${log.blockNumber}`, sourceProviderUrl);
+        const block = await this.withRetry(() => sourceProvider.getBlock(log.blockNumber), `getBlock ${log.blockNumber}`, sourceProviderUrl) as Block | null;
         if (!block) {
           console.error(`Could not fetch block for ${log.blockNumber} on ${sourceProviderUrl} (tx: ${txHash}). Skipping.`);
           return;
