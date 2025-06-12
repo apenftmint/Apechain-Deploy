@@ -33,7 +33,7 @@ import {
     LIVE_FREE_MINTS_CACHE_KEY,
     LIVE_PAID_MINTS_CACHE_KEY,
     SOUND_ENABLED_PREFERENCE_KEY
-    // ADMIN_SESSION_KEY, ANALYSIS_RESULTS_CACHE_KEY, TABLE_DATA_CACHE_KEY removed.
+    // ADMIN_SESSION_KEY, ANALYSIS_RESULTS_CACHE_KEY, TABLE_DATA_CACHE_KEY, etc. removed from imports as they are deprecated
 } from './constants';
 
 const AdminLogin = lazy(() => import('./components/admin/AdminLogin'));
@@ -79,7 +79,7 @@ const App: React.FC = () => {
 
   const [tableData, setTableData] = useState<AppTableDisplayMintData[]>([]);
   const [tableFilter, setTableFilter] = useState<'all' | 'free' | 'paid'>('all');
-  const [isFetchingTableData, setIsFetchingTableData] = useState<boolean>(true);
+  const [isFetchingTableData, setIsFetchingTableData] = useState<boolean>(true); // Initially true
   const [tableDataError, setTableDataError] = useState<string | null>(null);
   const [tableItemsPerPage, setTableItemsPerPage] = useState<number>(10);
 
@@ -200,12 +200,12 @@ const App: React.FC = () => {
             throw new Error(`Failed to fetch unique collections: ${response.status} ${response.statusText} - ${errorText}`);
         }
         const data: AppTableDisplayMintData[] = await response.json();
-        console.log(`fetchUniqueCollectionsTableData: Received ${data.length} collections from API.`); // Key log
+        console.log(`fetchUniqueCollectionsTableData: Received ${data.length} collections from API.`);
         setTableData(data.sort((a,b) => b.timestamp - a.timestamp));
     } catch (e: any) {
         console.error("Failed to fetch unique collections table data (from API endpoint):", e);
         setTableDataError(`Error loading collections: ${e.message}. Please try refreshing.`);
-        setTableData([]); // Ensure table data is empty on error
+        setTableData([]); 
     } finally {
         setIsFetchingTableData(false);
         console.log("fetchUniqueCollectionsTableData (API) finished. isFetchingTableData:", false);
@@ -249,7 +249,7 @@ const App: React.FC = () => {
     const pageId = getPageFromHash(currentRoute);
     let newHashTarget: string | null = null;
 
-    if (initialAppSetupComplete) {
+    if (initialAppSetupComplete) { // Only attempt redirects after initial data loads are done
         if (pageId === CONFIG_LOGIN_PAGE_ID && isAdminLoggedIn) {
             newHashTarget = `#/?${PAGE_QUERY_PARAM}=${CONFIG_PANEL_PAGE_ID}`;
         } else if (pageId === CONFIG_PANEL_PAGE_ID && !isAdminLoggedIn) {
@@ -263,7 +263,7 @@ const App: React.FC = () => {
     }
   }, [currentRoute, isAdminLoggedIn, initialAppSetupComplete]);
 
-  useEffect(() => {
+  useEffect(() => { // Load from localStorage for live feeds (client-side only cache)
     try {
       const storedAllTimeMintsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (storedAllTimeMintsRaw) setAllTimeMints(JSON.parse(storedAllTimeMintsRaw).sort((a:MintData,b:MintData) => b.timestamp - a.timestamp));
@@ -305,7 +305,7 @@ const App: React.FC = () => {
         setLivePaidMints(prevMints => processMintsForLiveFeed(prevMints, LIVE_PAID_MINTS_CACHE_KEY));
     }
 
-    setAllTimeMints(prevAllMints => {
+    setAllTimeMints(prevAllMints => { // For localStorage backup of all detected mints
       let updatedPersistedMints = [newMint, ...prevAllMints];
       const uniqueEventsMap = new Map<string, MintData>();
       updatedPersistedMints.forEach(mint => {
@@ -328,6 +328,7 @@ const App: React.FC = () => {
       return updatedPersistedMints;
     });
 
+    // POST new mint to backend, then refresh table data from backend
     try {
         const response = await fetch(UNIQUE_COLLECTIONS_API_ENDPOINT, {
             method: 'POST',
@@ -340,7 +341,7 @@ const App: React.FC = () => {
         } else {
             const responseData = await response.json();
             console.log(`Successfully POSTed new mint ${newMint.txHash} to collections API. Server response: ${responseData.message}`);
-            fetchUniqueCollectionsTableData(); 
+            fetchUniqueCollectionsTableData(); // Refresh table data from API after POST
         }
     } catch (e) {
         console.error("Error POSTing new mint to collections API:", e);
@@ -349,10 +350,10 @@ const App: React.FC = () => {
   }, [fetchUniqueCollectionsTableData]);
 
   const handleSetupComplete = useCallback(() => {
-    setIsLoading(false); 
+    setIsLoading(false); // Blockchain service connected
   }, []);
 
-  useEffect(() => {
+  useEffect(() => { // Blockchain service listener setup
     const initService = async () => {
       setIsLoading(true); setError(null); setRateLimitWarning(null);
       try {
@@ -371,11 +372,13 @@ const App: React.FC = () => {
     };
   }, [handleNewMint, handleError, handleSetupComplete]);
 
- useEffect(() => {
+
+ useEffect(() => { // Popup and sound notification logic
     if (isInitialLoadRef.current && initialAppSetupComplete && !isLoading && !isFetchingTableData && !isAdminSettingsLoading && !isSeenPopupsLoading) {
-      isInitialLoadRef.current = false;
+      isInitialLoadRef.current = false; // Initial setup is complete
     }
 
+    // Guard: Don't run notifications until all initial loading states are false
     if (isInitialLoadRef.current || !initialAppSetupComplete || isSeenPopupsLoading || isAdminSettingsLoading || isFetchingTableData || isLoading) {
         if (!userInteracted && speechSynthesis.speaking) speechSynthesis.cancel();
         if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
@@ -383,10 +386,12 @@ const App: React.FC = () => {
     }
 
     let notificationProcessed = false;
-    for (const mint of tableData) { 
+    for (const mint of tableData) { // Iterate over API-sourced tableData
         if (playedNotificationForContractsRef.current.has(mint.contractAddress) || notificationProcessed) continue;
 
+        // Only trigger for free mints with OK analysis
         if (mint.isFree && mint.analysis && mint.analysis.finalStatus === 'OK') {
+            // Add to active popups if not already there
             setActivePopups(prev => prev.some(p => p.txHash === mint.txHash && p.logIndex === mint.logIndex) ? prev : [...prev, { ...mint, popupId: `${mint.contractAddress}-${mint.tokenId}-${Date.now()}` }]);
 
             if (userInteracted && soundEnabled && tableFilter === 'free') {
@@ -400,9 +405,10 @@ const App: React.FC = () => {
                 utteranceRef.current.onerror = e => { if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current); console.error('Speech error:', e.error);};
                 speechSynthesis.speak(utteranceRef.current);
                 speechTimeoutRef.current = window.setTimeout(() => { if (speechSynthesis.speaking && utteranceRef.current?.text === text) speechSynthesis.cancel(); }, 10000);
-                notificationProcessed = true;
+                notificationProcessed = true; // Process only one sound notification per tableData update cycle
             }
             playedNotificationForContractsRef.current.add(mint.contractAddress);
+            // Notify backend that this popup has been "seen"
             fetch(MARK_POPUP_SEEN_API_ENDPOINT, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -415,7 +421,8 @@ const App: React.FC = () => {
             .catch(err => console.error(`Error marking popup as seen for ${mint.contractAddress} on backend:`, err));
         }
     }
-  }, [tableData, userInteracted, soundEnabled, tableFilter, initialAppSetupComplete, isSeenPopupsLoading, isAdminSettingsLoading, isFetchingTableData, isLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableData, userInteracted, soundEnabled, tableFilter, initialAppSetupComplete, isSeenPopupsLoading, isAdminSettingsLoading, isFetchingTableData, isLoading]); // Dependencies for popup/sound
 
   const handlePopupClose = (popupId: string) => setActivePopups(prev => prev.filter(p => p.popupId !== popupId));
 
@@ -443,14 +450,17 @@ const App: React.FC = () => {
 
   const handleAdminLoginSuccess = () => {
     setIsAdminLoggedIn(true); 
+    // No need to reload settings here, they are loaded initially.
+    // Panel will show current state, save triggers reload.
   };
 
   const handleAdminLogout = () => {
     setIsAdminLoggedIn(false); 
+    // No need to reload settings here. Defaults take effect.
   };
 
   const handleAdminSettingsSave = () => {
-    loadAdminSettings(true); 
+    loadAdminSettings(true); // Force reload settings from backend after save attempt
     alert("Admin settings save attempt sent to server! Changes will be reflected if successful.");
   }
 
@@ -462,7 +472,7 @@ const App: React.FC = () => {
 
   const renderMainContent = () => (
     <>
-      { (isAdminSettingsLoading && !initialAppSetupComplete) && (
+      { (isAdminSettingsLoading && !initialAppSetupComplete) && ( // Show admin loading only if initial setup is also not done
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-[200]">
             <LoadingSpinner /><p className="ml-3 text-slate-300">Loading site configuration...</p>
         </div>
@@ -472,7 +482,7 @@ const App: React.FC = () => {
               <p className="text-slate-200">{adminSettingsError}</p>
           </div>
       )}
-       { (isSeenPopupsLoading && !initialAppSetupComplete) && (
+       { (isSeenPopupsLoading && !initialAppSetupComplete) && ( // Show seen popups loading similarly
         <div className="fixed inset-x-0 top-1/2 transform -translate-y-1/2 bg-slate-900/50 flex items-center justify-center z-[190] p-2 text-sm">
             <LoadingSpinner /><p className="ml-2 text-slate-300">Loading popup history...</p>
         </div>
@@ -483,6 +493,7 @@ const App: React.FC = () => {
           </div>
       )}
 
+      {/* Ads and Popups */}
       {(!isAdminSettingsLoading && ADVERTISEMENT_TEXT && effectiveTwitterId) && <AdvertisementBanner text={ADVERTISEMENT_TEXT} link={activeBannerLink} />}
       {(!isAdminSettingsLoading && visibleAds.length > 0) && <NftAdvertisementPoster adList={visibleAds} />}
 
@@ -491,13 +502,14 @@ const App: React.FC = () => {
       ))}
 
       <main className="w-full p-4 md:p-8 flex-grow">
+        {/* Blockchain Connection Status & Live Feeds */}
         {!providerOk && !isLoading && (
           <div className="w-full max-w-4xl mx-auto text-center p-6 bg-red-800/50 rounded-xl shadow-2xl border border-red-600 mb-6 backdrop-blur-sm">
             <h2 className="text-2xl font-semibold text-red-300 mb-3">Connection Error</h2>
             <p className="text-slate-300">{error || "Could not connect to the ApeChain network."}</p>
           </div>
         )}
-        {isLoading && ( 
+        {isLoading && ( // This isLoading is for blockchainService
           <div className="flex flex-col items-center justify-center text-center p-6 w-full max-w-4xl mx-auto mb-6">
             <LoadingSpinner />
             <p className="mt-4 text-lg text-slate-300">{providerOk ? "Connecting to ApeChain for live mints..." : "Initializing blockchain connection..."}</p>
@@ -521,8 +533,10 @@ const App: React.FC = () => {
             <p className="text-slate-300">No live mints detected yet.</p>
           </div>
         )}
-        { !isLoading && (
+        {/* Main Content Layout: Live Feeds and Unique Collections Table */}
+        { !isLoading && ( // Only show main layout if blockchain service is not in its initial loading state
           <div className="w-full max-w-8xl mx-auto flex flex-col md:flex-row md:space-x-6 lg:space-x-8 mt-4">
+            {/* Live Feeds Column */}
             <div className="w-full md:w-2/5 lg:w-1/3 flex flex-col space-y-8 mb-8 md:mb-0">
               <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
                 <h2 className="text-3xl font-semibold text-center md:text-left text-green-400 mb-4 drop-shadow-[0_1px_1px_rgba(0,255,0,0.3)]">
@@ -549,6 +563,7 @@ const App: React.FC = () => {
                 )}
               </div>
             </div>
+            {/* Unique Collections Table Column */}
             <div className="w-full md:w-3/5 lg:w-2/3">
               <section className="p-4 sm:p-6 bg-slate-800/70 rounded-xl shadow-2xl h-full border border-slate-700 backdrop-blur-sm flex flex-col">
                 <div className="flex flex-col sm:flex-row justify-between items-start mb-4">
@@ -574,12 +589,13 @@ const App: React.FC = () => {
                         ))}
                     </div>
                 </div>
-                {isFetchingTableData && !initialAppSetupComplete && ( 
+                {/* Table Display Logic */}
+                {isFetchingTableData && !initialAppSetupComplete && ( // Initial load for table data
                     <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
                         <LoadingSpinner /><p className="mt-3">Loading unique collections from API...</p>
                     </div>
                 )}
-                 {isFetchingTableData && initialAppSetupComplete && ( 
+                 {isFetchingTableData && initialAppSetupComplete && ( // Subsequent fetches (e.g., after POST)
                     <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
                         <LoadingSpinner /><p className="mt-3">Refreshing collections data...</p>
                     </div>
@@ -595,8 +611,8 @@ const App: React.FC = () => {
                 )}
                 {!isFetchingTableData && !tableDataError && getFilteredAndPaginatedTableData().length === 0 && (
                   <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                    {tableData.length === 0 
-                        ? <p>No collections from the last 24 hours found in vaa.json, or API error occurred.</p> 
+                    {tableData.length === 0 // Check raw API data length first
+                        ? <p>No collections from the last 24 hours found (via API), or an error occurred.</p> 
                         : <p>No collections match the current "{tableFilter}" filter from the available data.</p>
                     }
                   </div>
@@ -625,12 +641,14 @@ const App: React.FC = () => {
     </div>
   );
 
+  // Determine content based on route and login state, ensuring initial setup is complete for main content
   if (!initialAppSetupComplete && (currentPageId === CONFIG_LOGIN_PAGE_ID || currentPageId === CONFIG_PANEL_PAGE_ID)) {
+    // If trying to access admin pages before full setup, show a generic loading
     contentToRender = showRedirectingMessage("Initializing site configuration...");
-  } else if (!initialAppSetupComplete && !currentPageId) { 
+  } else if (!initialAppSetupComplete && !currentPageId) { // If on main page before setup
     contentToRender = showRedirectingMessage("Initializing ApeChain Mint Tracker...");
   }
-  else if (isAdminLoggedIn) {
+  else if (isAdminLoggedIn) { // User is logged in
       if (currentPageId === CONFIG_PANEL_PAGE_ID) {
           contentToRender = (
             <Suspense fallback={showRedirectingMessage("Loading Admin Panel...")}>
@@ -642,21 +660,21 @@ const App: React.FC = () => {
               />
             </Suspense>
           );
-      } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
-          contentToRender = showRedirectingMessage("Redirecting to panel..."); 
-      } else { 
+      } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) { // Logged in but on login page
+          contentToRender = showRedirectingMessage("Redirecting to panel..."); // Will be redirected by useEffect
+      } else { // Logged in, on main content page
           contentToRender = renderMainContent();
       }
-  } else { 
+  } else { // User is NOT logged in
       if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
           contentToRender = (
             <Suspense fallback={showRedirectingMessage("Loading Admin Login...")}>
               <AdminLogin onLoginSuccess={handleAdminLoginSuccess} />
             </Suspense>
           );
-      } else if (currentPageId === CONFIG_PANEL_PAGE_ID) {
-          contentToRender = showRedirectingMessage("Redirecting to login..."); 
-      } else { 
+      } else if (currentPageId === CONFIG_PANEL_PAGE_ID) { // Not logged in but on admin panel page
+          contentToRender = showRedirectingMessage("Redirecting to login..."); // Will be redirected by useEffect
+      } else { // Not logged in, on main content page
           contentToRender = renderMainContent();
       }
   }
@@ -665,7 +683,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-slate-100 flex flex-col items-center selection:bg-fuchsia-500 selection:text-white flex-grow">
       <header className="app-main-header flex justify-between items-center px-4">
-          <div></div> 
+          <div></div> {/* Spacer for centering title */}
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-fuchsia-500 to-indigo-600 pb-1 drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
             {APP_TITLE}
           </h1>
@@ -673,6 +691,7 @@ const App: React.FC = () => {
             Site Config
           </a>
       </header>
+      {/* Conditional rendering to ensure initial setup doesn't block admin pages if directly navigated */}
       { (initialAppSetupComplete || currentPageId === CONFIG_LOGIN_PAGE_ID || currentPageId === CONFIG_PANEL_PAGE_ID)
         ? contentToRender
         : showRedirectingMessage("Initializing ApeChain Mint Tracker...")
