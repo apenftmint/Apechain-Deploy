@@ -1,4 +1,3 @@
-
 // Netlify Function: collections-manager.ts
 import type { Handler, HandlerEvent, HandlerContext } from "@netlify/functions";
 import { MintData, CollectionAnalysisResult, FinalCollectionStatus, TokenMetadata, MetadataStatus, NameSymbolStatus } from '../../src/types'; // Adjusted path assuming types.ts is in src
@@ -23,6 +22,8 @@ const NETLIFY_FUNCTION_RPC_URL_ENV = process.env.NETLIFY_FUNCTION_RPC_URL;
 
 const twentyFourHoursInSeconds = 24 * 60 * 60;
 const USER_AGENT = `${GITHUB_REPO_OWNER_ENV || 'netlify-function-user'}-collections-manager`;
+const MAX_COMMIT_ATTEMPTS = 2; // Initial attempt + 1 retry for 409
+const RETRY_DELAY_MS = 2000; // Increased delay for retry
 
 
 // --- Helper: Basic Collection Analysis (simplified from client-side service) ---
@@ -124,19 +125,24 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
   console.log(`[${handlerInvocationTime}] --- collections-manager invoked ---`);
   console.log(`[${handlerInvocationTime}] HTTP Method: ${event.httpMethod}`);
 
-  // Detailed Environment Variable Logging
-  console.log(`[${Date.now()}] Env Var Check - GITHUB_TOKEN is set: ${!!GITHUB_TOKEN_ENV}`);
-  if (GITHUB_TOKEN_ENV) {
-      console.log(`[${Date.now()}] Env Var Check - GITHUB_TOKEN starts with: ${GITHUB_TOKEN_ENV.substring(0, Math.min(5, GITHUB_TOKEN_ENV.length))}`);
-  }
-  console.log(`[${Date.now()}] Env Var Check - GITHUB_REPO_OWNER: ${GITHUB_REPO_OWNER_ENV}`);
-  console.log(`[${Date.now()}] Env Var Check - GITHUB_REPO_NAME: ${GITHUB_REPO_NAME_ENV}`);
-  console.log(`[${Date.now()}] Env Var Check - GITHUB_REPO_BRANCH: ${GITHUB_REPO_BRANCH_ENV}`);
-  console.log(`[${Date.now()}] Env Var Check - GITHUB_FILE_PATH: ${GITHUB_FILE_PATH_ENV}`);
+  const logEnvVar = (name: string, value?: string) => {
+    console.log(`[${Date.now()}] Env Var Check - ${name} is set: ${!!value}`);
+    if (value && name === 'GITHUB_TOKEN') {
+        console.log(`[${Date.now()}] Env Var Check - GITHUB_TOKEN starts with: ${value.substring(0, Math.min(5, value.length))}`);
+    } else if (value) {
+        console.log(`[${Date.now()}] Env Var Check - ${name}: ${value}`);
+    }
+  };
+
+  logEnvVar('GITHUB_TOKEN', GITHUB_TOKEN_ENV);
+  logEnvVar('GITHUB_REPO_OWNER', GITHUB_REPO_OWNER_ENV);
+  logEnvVar('GITHUB_REPO_NAME', GITHUB_REPO_NAME_ENV);
+  logEnvVar('GITHUB_REPO_BRANCH', GITHUB_REPO_BRANCH_ENV);
+  logEnvVar('GITHUB_FILE_PATH', GITHUB_FILE_PATH_ENV);
   
 
   if (!GITHUB_TOKEN_ENV || !GITHUB_REPO_OWNER_ENV || !GITHUB_REPO_NAME_ENV || !GITHUB_REPO_BRANCH_ENV || !GITHUB_FILE_PATH_ENV) {
-    console.error(`[${Date.now()}] Config Error: Missing one or more GitHub environment variables. Check Netlify function logs above this message for details on which might be missing.`);
+    console.error(`[${Date.now()}] Config Error: Missing one or more GitHub environment variables.`);
     return { statusCode: 500, body: JSON.stringify({ message: "Server configuration error: Missing GitHub credentials." }) };
   }
   const githubApiUrl = `https://api.github.com/repos/${GITHUB_REPO_OWNER_ENV}/${GITHUB_REPO_NAME_ENV}/contents/${GITHUB_FILE_PATH_ENV}`;
@@ -164,25 +170,25 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
                 try {
                     allCollectionsData = JSON.parse(contentStr);
                     if (!Array.isArray(allCollectionsData)) {
-                        console.warn(`[${Date.now()}] GET: Data from GitHub API is not an array. Treating as empty. Content preview: ${contentStr.substring(0, 100)}...`);
+                        console.warn(`[${Date.now()}] GET: Data from GitHub API is not an array. Content: ${contentStr.substring(0,100)}`);
                         allCollectionsData = [];
                     }
                 } catch (e: any) {
-                    console.error(`[${Date.now()}] GET: Failed to parse JSON from GitHub API content. Treating as empty. Content preview: ${contentStr.substring(0, 100)}... Error: ${e.message}`);
+                    console.error(`[${Date.now()}] GET: Failed to parse JSON from GitHub. Content: ${contentStr.substring(0,100)}. Error: ${e.message}`);
                     allCollectionsData = [];
                 }
             } else {
-                 console.log(`[${Date.now()}] GET: Fetched data from GitHub API is empty string. Treating as empty list.`);
+                 console.log(`[${Date.now()}] GET: Fetched data from GitHub API is empty string.`);
             }
         } else {
-            console.warn(`[${Date.now()}] GET: GitHub API response OK, but no content field. Assuming empty or malformed. Response:`, fileData);
+            console.warn(`[${Date.now()}] GET: GitHub API response OK, but no content field. File may be empty or response malformed. Response:`, JSON.stringify(fileData).substring(0,200));
         }
       } else if (response.status === 404) {
-        console.log(`[${Date.now()}] GET: vaa.json not found on GitHub via API. Returning empty collection list.`);
+        console.log(`[${Date.now()}] GET: vaa.json not found on GitHub (404).`);
       } else {
         const errorText = await response.text();
-        console.error(`[${Date.now()}] GET: Failed to fetch data from GitHub API. Status: ${response.status}. Error: ${errorText}`);
-        throw new Error(`Failed to fetch collections data from GitHub API: ${response.status} ${response.statusText}`);
+        console.error(`[${Date.now()}] GET: Failed to fetch from GitHub API. Status: ${response.status}. Error: ${errorText}`);
+        throw new Error(`GitHub API fetch error: ${response.status} ${response.statusText}`);
       }
       
       const twentyFourHoursAgoUnix = Math.floor(Date.now() / 1000) - twentyFourHoursInSeconds;
@@ -208,12 +214,11 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
 
   } else if (event.httpMethod === "POST") {
     const postStartTime = Date.now();
-    console.log(`[${postStartTime}] POST: Processing POST request to update vaa.json...`);
-    
-    // Log RPC URL specifically for POST
-    console.log(`[${Date.now()}] Env Var Check - NETLIFY_FUNCTION_RPC_URL is set for POST: ${!!NETLIFY_FUNCTION_RPC_URL_ENV}`);
+    logEnvVar('NETLIFY_FUNCTION_RPC_URL', NETLIFY_FUNCTION_RPC_URL_ENV);
+    console.log(`[${postStartTime}] POST: Processing POST request...`);
+        
     if (!NETLIFY_FUNCTION_RPC_URL_ENV) {
-      console.error(`[${Date.now()}] POST Error: Missing NETLIFY_FUNCTION_RPC_URL environment variable.`);
+      console.error(`[${Date.now()}] POST Error: Missing NETLIFY_FUNCTION_RPC_URL env var.`);
       return { statusCode: 500, body: JSON.stringify({ message: "Server configuration error: Missing RPC URL." }) };
     }
 
@@ -232,115 +237,115 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
       return { statusCode: 400, body: JSON.stringify({ message: "Invalid mint data in request" }) };
     }
 
-    try {
-      console.log(`[${Date.now()}] POST: Fetching current vaa.json from ${githubApiUrl}?ref=${GITHUB_REPO_BRANCH_ENV}`);
-      const currentFileResponse = await fetch(`${githubApiUrl}?ref=${GITHUB_REPO_BRANCH_ENV}`, {
-        headers: { 
-            'Authorization': `token ${GITHUB_TOKEN_ENV}`, 
-            'Accept': 'application/vnd.github.v3+json',
-            'User-Agent': USER_AGENT
+    console.log(`[${Date.now()}] POST: Analyzing new mint for ${newMintInput.contractAddress}#${newMintInput.tokenId}`);
+    const analyzedNewMint = await analyzeNewMint(newMintInput, NETLIFY_FUNCTION_RPC_URL_ENV);
+    console.log(`[${Date.now()}] POST: Analysis complete for ${analyzedNewMint.collectionName}.`);
+
+    for (let attempt = 1; attempt <= MAX_COMMIT_ATTEMPTS; attempt++) {
+        try {
+            console.log(`[${Date.now()}] POST (Commit Attempt ${attempt}/${MAX_COMMIT_ATTEMPTS}): Fetching current vaa.json`);
+            const currentFileResponse = await fetch(`${githubApiUrl}?ref=${GITHUB_REPO_BRANCH_ENV}`, {
+                headers: { 
+                    'Authorization': `token ${GITHUB_TOKEN_ENV}`, 
+                    'Accept': 'application/vnd.github.v3+json',
+                    'User-Agent': USER_AGENT
+                }
+            });
+
+            let currentCollections: AppTableDisplayMintData[] = [];
+            let currentSha = "";
+            let fileExists = false;
+
+            if (currentFileResponse.ok) {
+                const fileData = await currentFileResponse.json();
+                if (fileData.content && fileData.sha) {
+                    currentSha = fileData.sha;
+                    const currentContentStr = Buffer.from(fileData.content, 'base64').toString('utf-8');
+                    if (currentContentStr.trim() !== "") {
+                        currentCollections = JSON.parse(currentContentStr);
+                    }
+                    fileExists = true;
+                    console.log(`[${Date.now()}] POST (Attempt ${attempt}): Fetched vaa.json. SHA: ${currentSha.substring(0,7)}, Items: ${currentCollections.length}`);
+                }
+            } else if (currentFileResponse.status === 404) {
+                console.log(`[${Date.now()}] POST (Attempt ${attempt}): vaa.json not found on GitHub. Will create new.`);
+            } else {
+                const errorText = await currentFileResponse.text();
+                throw new Error(`GitHub API fetch error (Attempt ${attempt}): ${currentFileResponse.status} ${errorText}`);
+            }
+          
+            const twentyFourHoursAgoUnix = Math.floor(Date.now() / 1000) - twentyFourHoursInSeconds;
+            let updatedCollections = currentCollections.filter(c => c.timestamp >= twentyFourHoursAgoUnix);
+            
+            const existingCollectionIndex = updatedCollections.findIndex(c => c.contractAddress === analyzedNewMint.contractAddress);
+
+            if (existingCollectionIndex > -1) {
+                const existingEntry = updatedCollections[existingCollectionIndex];
+                updatedCollections[existingCollectionIndex] = {
+                    ...analyzedNewMint, 
+                    totalContractMints: (existingEntry.totalContractMints || 0) + 1, 
+                    // Ensure the latest mint's timestamp and specific details are used if it's "fresher"
+                    // but retain the analysis from the *newly processed* mint.
+                    timestamp: Math.max(existingEntry.timestamp, analyzedNewMint.timestamp),
+                    tokenId: analyzedNewMint.timestamp >= existingEntry.timestamp ? analyzedNewMint.tokenId : existingEntry.tokenId,
+                    txHash: analyzedNewMint.timestamp >= existingEntry.timestamp ? analyzedNewMint.txHash : existingEntry.txHash,
+                };
+                 console.log(`[${Date.now()}] POST (Attempt ${attempt}): Updated existing collection ${analyzedNewMint.contractAddress}. Total mints now: ${updatedCollections[existingCollectionIndex].totalContractMints}`);
+            } else {
+                updatedCollections.push(analyzedNewMint); 
+                console.log(`[${Date.now()}] POST (Attempt ${attempt}): Added new collection ${analyzedNewMint.contractAddress}.`);
+            }
+
+            updatedCollections.sort((a, b) => b.timestamp - a.timestamp);
+            console.log(`[${Date.now()}] POST (Attempt ${attempt}): Merged. Total collections in memory: ${updatedCollections.length}`);
+
+            const newContentBase64 = Buffer.from(JSON.stringify(updatedCollections, null, 2)).toString('base64');
+            const commitMessage = `Automated update: mint for ${analyzedNewMint.collectionName} (${analyzedNewMint.contractAddress.slice(0,6)})`;
+            
+            const commitBody: any = { message: commitMessage, content: newContentBase64, branch: GITHUB_REPO_BRANCH_ENV };
+            if (fileExists && currentSha) commitBody.sha = currentSha; 
+
+            console.log(`[${Date.now()}] POST (Attempt ${attempt}): Committing to GitHub. SHA being sent: ${commitBody.sha ? commitBody.sha.substring(0,7) : 'N/A (new file)'}`);
+            const updateResponse = await fetch(githubApiUrl, {
+                method: 'PUT',
+                headers: { 
+                    'Authorization': `token ${GITHUB_TOKEN_ENV}`, 
+                    'Accept': 'application/vnd.github.v3+json', 
+                    'Content-Type': 'application/json',
+                    'User-Agent': USER_AGENT
+                },
+                body: JSON.stringify(commitBody),
+            });
+
+            if (updateResponse.ok) {
+                const commitData = await updateResponse.json();
+                console.log(`[${Date.now()}] POST (Attempt ${attempt}): Successfully committed. New SHA: ${commitData.content?.sha?.substring(0,7)}. Duration: ${Date.now() - postStartTime}ms`);
+                return {
+                    statusCode: 200, 
+                    body: JSON.stringify({ message: "vaa.json updated successfully on GitHub.", newSha: commitData.content?.sha }),
+                };
+            } else if (updateResponse.status === 409 && attempt < MAX_COMMIT_ATTEMPTS) {
+                const errorText = await updateResponse.text();
+                console.warn(`[${Date.now()}] POST (Attempt ${attempt}): GitHub commit conflict (409). Retrying after ${RETRY_DELAY_MS}ms. Error details: ${errorText}`);
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+            } else {
+                const errorText = await updateResponse.text();
+                throw new Error(`GitHub API commit error (Attempt ${attempt}): ${updateResponse.status} ${errorText}`);
+            }
+        } catch (error: any) {
+            console.error(`[${Date.now()}] POST Error during commit attempt ${attempt}: ${error.message}. Duration: ${Date.now() - postStartTime}ms`, error.stack);
+            if (attempt >= MAX_COMMIT_ATTEMPTS) {
+                return { statusCode: 500, body: JSON.stringify({ message: "Handler POST error after all retries", errorDetails: error.message }) };
+            }
+            // Wait before next attempt for non-409 errors as well, or if 409 was the last attempt.
+             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
         }
-      });
-
-      let currentCollections: AppTableDisplayMintData[] = [];
-      let currentSha = "";
-      let fileExists = false;
-
-      if (currentFileResponse.ok) {
-        const fileData = await currentFileResponse.json();
-        if (fileData.content && fileData.sha) {
-          currentSha = fileData.sha;
-          const currentContentStr = Buffer.from(fileData.content, 'base64').toString('utf-8');
-          if (currentContentStr.trim() !== "") {
-            currentCollections = JSON.parse(currentContentStr);
-          }
-          fileExists = true;
-          console.log(`[${Date.now()}] POST: Successfully fetched vaa.json. SHA: ${currentSha}, Items: ${currentCollections.length}`);
-        } else {
-           console.warn(`[${Date.now()}] POST: vaa.json content or SHA missing from GitHub API response. Assuming new file. Response:`, fileData);
-        }
-      } else if (currentFileResponse.status === 404) {
-        console.log(`[${Date.now()}] POST: vaa.json not found on GitHub. Will create a new one.`);
-      } else {
-        const errorText = await currentFileResponse.text();
-        console.error(`[${Date.now()}] POST Error: Failed to fetch vaa.json from GitHub API. Status: ${currentFileResponse.status}. Error: ${errorText}`);
-        throw new Error(`GitHub API fetch error: ${currentFileResponse.status} ${errorText}`);
-      }
-      
-      console.log(`[${Date.now()}] POST: Analyzing new mint for ${newMintInput.contractAddress}...`);
-      const analyzedNewMint = await analyzeNewMint(newMintInput, NETLIFY_FUNCTION_RPC_URL_ENV);
-      console.log(`[${Date.now()}] POST: Analysis complete for ${analyzedNewMint.collectionName}.`);
-
-      const twentyFourHoursAgoUnix = Math.floor(Date.now() / 1000) - twentyFourHoursInSeconds;
-      let updatedCollections = currentCollections.filter(c => c.timestamp >= twentyFourHoursAgoUnix);
-      
-      const existingCollectionIndex = updatedCollections.findIndex(c => c.contractAddress === analyzedNewMint.contractAddress);
-
-      if (existingCollectionIndex > -1) {
-        const existingEntry = updatedCollections[existingCollectionIndex];
-        console.log(`[${Date.now()}] POST: Updating existing collection ${existingEntry.contractAddress}. Old timestamp: ${existingEntry.timestamp}, new: ${analyzedNewMint.timestamp}`);
-        updatedCollections[existingCollectionIndex] = {
-          ...analyzedNewMint, 
-          totalContractMints: (existingEntry.totalContractMints || 0) + 1, 
-        };
-      } else {
-        console.log(`[${Date.now()}] POST: Adding new collection ${analyzedNewMint.contractAddress}.`);
-        updatedCollections.push(analyzedNewMint); 
-      }
-
-      updatedCollections.sort((a, b) => b.timestamp - a.timestamp);
-      console.log(`[${Date.now()}] POST: Merged. Total collections now: ${updatedCollections.length}`);
-
-      const newContentBase64 = Buffer.from(JSON.stringify(updatedCollections, null, 2)).toString('base64');
-      const commitMessage = `Automated update: new mint for ${analyzedNewMint.collectionName || analyzedNewMint.contractAddress}`;
-      
-      const commitBody: any = {
-        message: commitMessage,
-        content: newContentBase64,
-        branch: GITHUB_REPO_BRANCH_ENV,
-      };
-      if (fileExists && currentSha) {
-        commitBody.sha = currentSha; 
-      }
-
-      console.log(`[${Date.now()}] POST: Committing updated vaa.json to GitHub. File exists: ${fileExists}, SHA: ${currentSha ? currentSha.substring(0,7) : 'N/A'}`);
-      const updateResponse = await fetch(githubApiUrl, {
-        method: 'PUT',
-        headers: { 
-            'Authorization': `token ${GITHUB_TOKEN_ENV}`, 
-            'Accept': 'application/vnd.github.v3+json', 
-            'Content-Type': 'application/json',
-            'User-Agent': USER_AGENT
-        },
-        body: JSON.stringify(commitBody),
-      });
-
-      if (!updateResponse.ok) {
-        const errorText = await updateResponse.text();
-        console.error(`[${Date.now()}] POST Error: Failed to commit to GitHub. Status: ${updateResponse.status}. Error: ${errorText}`);
-        throw new Error(`GitHub API commit error: ${updateResponse.status} ${errorText}`);
-      }
-      const commitData = await updateResponse.json();
-      console.log(`[${Date.now()}] POST: Successfully committed to GitHub. New SHA: ${commitData.content?.sha?.substring(0,7) || 'N/A'}. Duration: ${Date.now() - postStartTime}ms`);
-      
-      return {
-        statusCode: 200, 
-        body: JSON.stringify({ message: "vaa.json updated successfully on GitHub.", newSha: commitData.content?.sha }),
-      };
-
-    } catch (error: any) {
-      console.error(`[${Date.now()}] POST Error: ${error.message}. Duration: ${Date.now() - postStartTime}ms`, error.stack);
-      return { statusCode: 500, body: JSON.stringify({ message: "Handler POST error", errorDetails: error.message }) };
     }
+    // Fallthrough if all retries fail
+    return { statusCode: 500, body: JSON.stringify({ message: "Handler POST error: Max commit attempts reached without success." }) };
   }
 
-  const finalTime = Date.now();
-  console.log(`[${finalTime}] --- collections-manager finishing (Method Not Allowed). Total duration: ${finalTime - handlerInvocationTime}ms ---`);
-  return {
-    statusCode: 405,
-    body: JSON.stringify({ message: "Method Not Allowed" }),
-  };
+  return { statusCode: 405, body: JSON.stringify({ message: "Method Not Allowed" }) };
 };
 
 export { handler };
-

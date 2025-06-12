@@ -200,11 +200,12 @@ const App: React.FC = () => {
             throw new Error(`Failed to fetch unique collections: ${response.status} ${response.statusText} - ${errorText}`);
         }
         const data: AppTableDisplayMintData[] = await response.json();
+        console.log(`fetchUniqueCollectionsTableData: Received ${data.length} collections from API.`); // Key log
         setTableData(data.sort((a,b) => b.timestamp - a.timestamp));
     } catch (e: any) {
         console.error("Failed to fetch unique collections table data (from API endpoint):", e);
         setTableDataError(`Error loading collections: ${e.message}. Please try refreshing.`);
-        setTableData([]);
+        setTableData([]); // Ensure table data is empty on error
     } finally {
         setIsFetchingTableData(false);
         console.log("fetchUniqueCollectionsTableData (API) finished. isFetchingTableData:", false);
@@ -238,7 +239,7 @@ const App: React.FC = () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Dependencies: loadAdminSettings, loadSeenPopups, fetchUniqueCollectionsTableData removed to run only once
+  }, []); 
 
   useEffect(() => {
     document.body.style.paddingTop = `${calculateBodyPaddingTop(effectiveTwitterId, effectiveAds)}px`;
@@ -248,7 +249,7 @@ const App: React.FC = () => {
     const pageId = getPageFromHash(currentRoute);
     let newHashTarget: string | null = null;
 
-    if (initialAppSetupComplete) { // Only attempt redirects after all initial data setup is complete
+    if (initialAppSetupComplete) {
         if (pageId === CONFIG_LOGIN_PAGE_ID && isAdminLoggedIn) {
             newHashTarget = `#/?${PAGE_QUERY_PARAM}=${CONFIG_PANEL_PAGE_ID}`;
         } else if (pageId === CONFIG_PANEL_PAGE_ID && !isAdminLoggedIn) {
@@ -256,7 +257,7 @@ const App: React.FC = () => {
         }
 
         if (newHashTarget && newHashTarget !== window.location.hash) {
-            console.log(`Redirecting from ${window.location.hash} to ${newHashTarget} (initialAppSetupComplete: ${initialAppSetupComplete}, isAdminLoggedIn: ${isAdminLoggedIn})`);
+            console.log(`Redirecting from ${window.location.hash} to ${newHashTarget}`);
             window.location.hash = newHashTarget;
         }
     }
@@ -339,8 +340,7 @@ const App: React.FC = () => {
         } else {
             const responseData = await response.json();
             console.log(`Successfully POSTed new mint ${newMint.txHash} to collections API. Server response: ${responseData.message}`);
-            // The table will refresh based on vaa.json, not this individual POST affecting the table directly.
-            fetchUniqueCollectionsTableData();
+            fetchUniqueCollectionsTableData(); 
         }
     } catch (e) {
         console.error("Error POSTing new mint to collections API:", e);
@@ -349,7 +349,7 @@ const App: React.FC = () => {
   }, [fetchUniqueCollectionsTableData]);
 
   const handleSetupComplete = useCallback(() => {
-    setIsLoading(false); // For blockchain service connection
+    setIsLoading(false); 
   }, []);
 
   useEffect(() => {
@@ -371,17 +371,11 @@ const App: React.FC = () => {
     };
   }, [handleNewMint, handleError, handleSetupComplete]);
 
-  // Client-side table data analysis (prepareTableData useEffect and related states) has been REMOVED.
-  // Table data, including analysis, now comes from fetchUniqueCollectionsTableData.
-
  useEffect(() => {
-    // This effect handles popups and sound notifications based on tableData.
-    // It depends on initialAppSetupComplete to ensure all preliminary data (seenPopups, settings) is loaded.
     if (isInitialLoadRef.current && initialAppSetupComplete && !isLoading && !isFetchingTableData && !isAdminSettingsLoading && !isSeenPopupsLoading) {
       isInitialLoadRef.current = false;
     }
 
-    // Wait for all initial loading states to be false AND initialAppSetupComplete to be true
     if (isInitialLoadRef.current || !initialAppSetupComplete || isSeenPopupsLoading || isAdminSettingsLoading || isFetchingTableData || isLoading) {
         if (!userInteracted && speechSynthesis.speaking) speechSynthesis.cancel();
         if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
@@ -389,11 +383,9 @@ const App: React.FC = () => {
     }
 
     let notificationProcessed = false;
-    for (const mint of tableData) { // tableData is now from vaa.json via API
+    for (const mint of tableData) { 
         if (playedNotificationForContractsRef.current.has(mint.contractAddress) || notificationProcessed) continue;
 
-        // Ensure mint.analysis exists before accessing its properties.
-        // The data from vaa.json should already include the analysis object.
         if (mint.isFree && mint.analysis && mint.analysis.finalStatus === 'OK') {
             setActivePopups(prev => prev.some(p => p.txHash === mint.txHash && p.logIndex === mint.logIndex) ? prev : [...prev, { ...mint, popupId: `${mint.contractAddress}-${mint.tokenId}-${Date.now()}` }]);
 
@@ -450,22 +442,15 @@ const App: React.FC = () => {
   };
 
   const handleAdminLoginSuccess = () => {
-    setIsAdminLoggedIn(true); // Set state, no localStorage
-    // No need to reload admin settings here as they are loaded initially or on explicit save
-    // Redirection is handled by the useEffect watching [currentRoute, isAdminLoggedIn, initialAppSetupComplete]
+    setIsAdminLoggedIn(true); 
   };
 
   const handleAdminLogout = () => {
-    setIsAdminLoggedIn(false); // Clear state
-    // Admin settings (ads, twitter) are not user-specific, so no need to "reload" them to defaults on logout.
-    // They are global, fetched once, or updated via AdminPanel save.
-    // If AdminPanel was showing user-specific settings, then a reload/reset would be needed.
-    // Redirection is handled by the useEffect
+    setIsAdminLoggedIn(false); 
   };
 
   const handleAdminSettingsSave = () => {
-    // AdminPanel POSTs to backend. App.tsx reloads from backend to reflect changes.
-    loadAdminSettings(true); // true to indicate it's a settings refresh
+    loadAdminSettings(true); 
     alert("Admin settings save attempt sent to server! Changes will be reflected if successful.");
   }
 
@@ -477,7 +462,6 @@ const App: React.FC = () => {
 
   const renderMainContent = () => (
     <>
-      {/* Show admin settings loading only if it's part of the initial setup and not yet complete */}
       { (isAdminSettingsLoading && !initialAppSetupComplete) && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-[200]">
             <LoadingSpinner /><p className="ml-3 text-slate-300">Loading site configuration...</p>
@@ -488,7 +472,6 @@ const App: React.FC = () => {
               <p className="text-slate-200">{adminSettingsError}</p>
           </div>
       )}
-      {/* Show seen popups loading only if it's part of the initial setup and not yet complete */}
        { (isSeenPopupsLoading && !initialAppSetupComplete) && (
         <div className="fixed inset-x-0 top-1/2 transform -translate-y-1/2 bg-slate-900/50 flex items-center justify-center z-[190] p-2 text-sm">
             <LoadingSpinner /><p className="ml-2 text-slate-300">Loading popup history...</p>
@@ -500,7 +483,6 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* Render ads only after admin settings are no longer in their initial loading phase */}
       {(!isAdminSettingsLoading && ADVERTISEMENT_TEXT && effectiveTwitterId) && <AdvertisementBanner text={ADVERTISEMENT_TEXT} link={activeBannerLink} />}
       {(!isAdminSettingsLoading && visibleAds.length > 0) && <NftAdvertisementPoster adList={visibleAds} />}
 
@@ -515,7 +497,7 @@ const App: React.FC = () => {
             <p className="text-slate-300">{error || "Could not connect to the ApeChain network."}</p>
           </div>
         )}
-        {isLoading && ( // This isLoading is for blockchainService connection
+        {isLoading && ( 
           <div className="flex flex-col items-center justify-center text-center p-6 w-full max-w-4xl mx-auto mb-6">
             <LoadingSpinner />
             <p className="mt-4 text-lg text-slate-300">{providerOk ? "Connecting to ApeChain for live mints..." : "Initializing blockchain connection..."}</p>
@@ -533,18 +515,15 @@ const App: React.FC = () => {
             <p className="text-slate-300 text-sm">{rateLimitWarning}</p>
           </div>
         )}
-        {/* Condition for "Listening for Live Mints" should appear after blockchain service is ready and if no mints are displayed */}
         {!isLoading && !error && !rateLimitWarning && displayedLiveFreeMints.length === 0 && displayedLivePaidMints.length === 0 && providerOk && (
           <div className="w-full max-w-4xl mx-auto text-center p-6 bg-slate-800/70 rounded-xl shadow-2xl mb-6 border border-slate-700 backdrop-blur-sm">
             <h2 className="text-2xl font-semibold text-sky-400 mb-3">Listening for Live Mints</h2>
             <p className="text-slate-300">No live mints detected yet.</p>
           </div>
         )}
-        {/* Main content sections for live mints and table should appear after blockchain service is ready */}
         { !isLoading && (
           <div className="w-full max-w-8xl mx-auto flex flex-col md:flex-row md:space-x-6 lg:space-x-8 mt-4">
             <div className="w-full md:w-2/5 lg:w-1/3 flex flex-col space-y-8 mb-8 md:mb-0">
-              {/* Live Free Mints */}
               <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
                 <h2 className="text-3xl font-semibold text-center md:text-left text-green-400 mb-4 drop-shadow-[0_1px_1px_rgba(0,255,0,0.3)]">
                   Live Free Mints <span className="text-sm text-slate-400">(Latest {MAX_DISPLAY_MINTS_FOR_LIVE_FEED})</span>
@@ -553,11 +532,10 @@ const App: React.FC = () => {
                   <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar" style={{maxHeight: 'calc(70vh - 120px)'}}>
                     {displayedLiveFreeMints.map((mint) => <MintCard key={`${mint.txHash}-${mint.logIndex}-free`} mint={mint} />)}
                   </div>
-                ) : providerOk && !error && ( // Show listening message if provider is ok and no errors
+                ) : providerOk && !error && ( 
                   <div className="p-6 h-40 flex items-center justify-center border border-slate-700 rounded-xl"> <p className="text-slate-400 text-sm">Listening for free mints...</p> </div>
                 )}
               </div>
-              {/* Live Paid Mints */}
               <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
                 <h2 className="text-3xl font-semibold text-center md:text-left text-amber-400 mb-4 drop-shadow-[0_1px_1px_rgba(255,193,7,0.3)]">
                   Live Paid Mints <span className="text-sm text-slate-400">(Latest {MAX_DISPLAY_MINTS_FOR_LIVE_FEED})</span>
@@ -571,7 +549,6 @@ const App: React.FC = () => {
                 )}
               </div>
             </div>
-            {/* Unique Collections Table Section */}
             <div className="w-full md:w-3/5 lg:w-2/3">
               <section className="p-4 sm:p-6 bg-slate-800/70 rounded-xl shadow-2xl h-full border border-slate-700 backdrop-blur-sm flex flex-col">
                 <div className="flex flex-col sm:flex-row justify-between items-start mb-4">
@@ -597,13 +574,12 @@ const App: React.FC = () => {
                         ))}
                     </div>
                 </div>
-                {/* Table Data Display Logic */}
-                {isFetchingTableData && !initialAppSetupComplete && ( // Show initial loading for table data if app setup isn't complete
+                {isFetchingTableData && !initialAppSetupComplete && ( 
                     <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
                         <LoadingSpinner /><p className="mt-3">Loading unique collections from API...</p>
                     </div>
                 )}
-                 {isFetchingTableData && initialAppSetupComplete && ( // Show simpler loading if it's a refresh after initial load
+                 {isFetchingTableData && initialAppSetupComplete && ( 
                     <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
                         <LoadingSpinner /><p className="mt-3">Refreshing collections data...</p>
                     </div>
@@ -619,10 +595,9 @@ const App: React.FC = () => {
                 )}
                 {!isFetchingTableData && !tableDataError && getFilteredAndPaginatedTableData().length === 0 && (
                   <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                    {/* Updated message */}
                     {tableData.length === 0 
-                        ? <p>No collections from the last 24 hours found in vaa.json.</p> 
-                        : <p>No collections match the current "{tableFilter}" filter.</p>
+                        ? <p>No collections from the last 24 hours found in vaa.json, or API error occurred.</p> 
+                        : <p>No collections match the current "{tableFilter}" filter from the available data.</p>
                     }
                   </div>
                 )}
@@ -650,13 +625,11 @@ const App: React.FC = () => {
     </div>
   );
 
-  // If initial setup isn't complete, and we are on a config page, show loading for config.
   if (!initialAppSetupComplete && (currentPageId === CONFIG_LOGIN_PAGE_ID || currentPageId === CONFIG_PANEL_PAGE_ID)) {
     contentToRender = showRedirectingMessage("Initializing site configuration...");
-  } else if (!initialAppSetupComplete && !currentPageId) { // Main page during initial load
+  } else if (!initialAppSetupComplete && !currentPageId) { 
     contentToRender = showRedirectingMessage("Initializing ApeChain Mint Tracker...");
   }
-  // Once initial setup is complete, proceed with routing logic
   else if (isAdminLoggedIn) {
       if (currentPageId === CONFIG_PANEL_PAGE_ID) {
           contentToRender = (
@@ -670,11 +643,11 @@ const App: React.FC = () => {
             </Suspense>
           );
       } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
-          contentToRender = showRedirectingMessage("Redirecting to panel..."); // Should be handled by useEffect redirect
-      } else { // Main content for logged-in admin (usually same as non-logged-in)
+          contentToRender = showRedirectingMessage("Redirecting to panel..."); 
+      } else { 
           contentToRender = renderMainContent();
       }
-  } else { // Not logged in
+  } else { 
       if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
           contentToRender = (
             <Suspense fallback={showRedirectingMessage("Loading Admin Login...")}>
@@ -682,8 +655,8 @@ const App: React.FC = () => {
             </Suspense>
           );
       } else if (currentPageId === CONFIG_PANEL_PAGE_ID) {
-          contentToRender = showRedirectingMessage("Redirecting to login..."); // Should be handled by useEffect redirect
-      } else { // Main content for non-logged-in user
+          contentToRender = showRedirectingMessage("Redirecting to login..."); 
+      } else { 
           contentToRender = renderMainContent();
       }
   }
@@ -692,7 +665,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-slate-100 flex flex-col items-center selection:bg-fuchsia-500 selection:text-white flex-grow">
       <header className="app-main-header flex justify-between items-center px-4">
-          <div></div> {/* Spacer for left side */}
+          <div></div> 
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-fuchsia-500 to-indigo-600 pb-1 drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
             {APP_TITLE}
           </h1>
@@ -700,7 +673,6 @@ const App: React.FC = () => {
             Site Config
           </a>
       </header>
-      {/* Ensure contentToRender is only shown after initial setup if it's main content */}
       { (initialAppSetupComplete || currentPageId === CONFIG_LOGIN_PAGE_ID || currentPageId === CONFIG_PANEL_PAGE_ID)
         ? contentToRender
         : showRedirectingMessage("Initializing ApeChain Mint Tracker...")
