@@ -41,7 +41,8 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
             <th scope="col" className="px-3 py-3.5 text-center text-xs sm:text-sm font-semibold text-slate-300 tracking-wider">Links</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-700">
+        {/* DIAGNOSTIC STYLING: Bright background on tbody */}
+        <tbody className="divide-y divide-slate-700 bg-yellow-500/30 border-2 border-yellow-700">
           {mints.map((mint, index) => {
             if (!mint) {
               console.error(`[MintsTable Row ${index + 1}] Mint item is null or undefined! Skipping row.`);
@@ -51,13 +52,10 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
             console.log(`[MintsTable Row ${index + 1}] Processing. Contract: ${mint.contractAddress}, TokenID: ${mint.tokenId}`);
             
             try {
-                // This log can be very verbose, enable if specific data inspection is needed.
                 // console.log(`[MintsTable Row ${index + 1}] Full Data (raw):`, mint);
-                // The JSON.parse(JSON.stringify(mint)) is for deep cloning if needed, but for logging, mint directly is fine.
-                // console.log(`[MintsTable Row ${index + 1}] Full Data (serialized for check):`, JSON.parse(JSON.stringify(mint)));
             } catch (e: any) {
                 console.error(`[MintsTable Row ${index + 1}] Error serializing/logging mint object for contract ${mint.contractAddress}:`, e.message);
-                console.log(`[MintsTable Row ${index + 1}] Problematic mint object structure:`, Object.keys(mint)); // Log keys to avoid large object print
+                console.log(`[MintsTable Row ${index + 1}] Problematic mint object structure:`, Object.keys(mint));
             }
 
             const explorerAddressUrl = `${APECHAIN_EXPLORER_URL}/address/${mint.contractAddress}`;
@@ -71,20 +69,22 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
             const rowKey = `${mint.txHash}-${mint.logIndex}-${mint.contractAddress}-${index}`;
 
             return (
-              <tr key={rowKey} className="hover:bg-slate-700/70 transition-colors duration-150">
-                <td className="whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-slate-400 text-center">{index + 1}</td>
-                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400">{formatTimestampToDateTime(mint.timestamp)}</td>
-                <td className="px-3 py-3 text-xs sm:text-sm max-w-[150px] truncate" title={`${collectionDisplayName} (Rep. Token ID: ${mint.tokenId})`}>
+              // DIAGNOSTIC STYLING: Border on tr
+              <tr key={rowKey} className="hover:bg-slate-700/70 transition-colors duration-150 border border-pink-500">
+                {/* DIAGNOSTIC STYLING: Border on td */}
+                <td className="whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-slate-400 text-center border border-cyan-500">{index + 1}</td>
+                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400 border border-cyan-500">{formatTimestampToDateTime(mint.timestamp)}</td>
+                <td className="px-3 py-3 text-xs sm:text-sm max-w-[150px] truncate border border-cyan-500" title={`${collectionDisplayName} (Rep. Token ID: ${mint.tokenId})`}>
                   {collectionDisplayName !== "Unnamed Collection" && collectionDisplayName !== "Unknown Collection" ? (
                     <span className="text-fuchsia-400 font-medium">{collectionDisplayName}</span>
                   ) : (
                     <span className="text-fuchsia-300 italic" title={mint.contractAddress}>{collectionDisplayName}</span>
                   )}
                 </td>
-                <td className={`whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-center font-semibold ${mint.isFree ? 'text-green-400' : 'text-amber-400'}`}>
+                <td className={`whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-center font-semibold border border-cyan-500 ${mint.isFree ? 'text-green-400' : 'text-amber-400'}`}>
                   {mint.isFree ? 'Free' : (mint.mintPriceApe ? `${mint.mintPriceApe} APE` : 'Paid')}
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400">
+                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400 border border-cyan-500">
                    <a 
                     href={explorerAddressUrl} 
                     target="_blank" 
@@ -95,7 +95,7 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
                     {truncateAddress(mint.contractAddress)}
                   </a>
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-center">
+                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-center border border-cyan-500">
                   <div className="flex items-center justify-center space-x-2 sm:space-x-3">
                     <a 
                       href={explorerTxUrl}
