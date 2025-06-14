@@ -474,14 +474,14 @@ const App: React.FC = () => {
   const renderMainContent = () => {
     const processedTableDataForDisplay = getFilteredAndPaginatedTableData();
 
-    // Diagnostic logs for table rendering
-    console.log('[renderMainContent] Table rendering check:');
-    console.log(`  - isFetchingTableData: ${isFetchingTableData}`);
-    console.log(`  - tableDataError: ${tableDataError}`);
-    console.log(`  - tableData.length: ${tableData.length}`);
-    console.log(`  - processedTableDataForDisplay.length: ${processedTableDataForDisplay.length}`);
-    console.log(`  - Current tableFilter: ${tableFilter}`);
-    console.log(`  - Current tableItemsPerPage: ${tableItemsPerPage}`);
+    // Diagnostic logs for table rendering (already present, good for verification)
+    // console.log('[renderMainContent] Table rendering check:');
+    // console.log(`  - isFetchingTableData: ${isFetchingTableData}`);
+    // console.log(`  - tableDataError: ${tableDataError}`);
+    // console.log(`  - tableData.length: ${tableData.length}`);
+    // console.log(`  - processedTableDataForDisplay.length: ${processedTableDataForDisplay.length}`);
+    // console.log(`  - Current tableFilter: ${tableFilter}`);
+    // console.log(`  - Current tableItemsPerPage: ${tableItemsPerPage}`);
 
 
     const tableLoadingIndicator = (
@@ -658,11 +658,18 @@ const App: React.FC = () => {
     </div>
   );
 
+  // This outer div wrapper for contentToRender ensures it can flex and grow.
+  const contentWrapper = (content: React.ReactNode) => (
+    <div className="flex-grow flex flex-col w-full items-center justify-center">
+        {content}
+    </div>
+  );
+
   if (!initialAppSetupComplete && !(currentPageId === CONFIG_LOGIN_PAGE_ID || currentPageId === CONFIG_PANEL_PAGE_ID)) {
-    contentToRender = showRedirectingMessage("Initializing ApeChain Mint Tracker...");
+    contentToRender = contentWrapper(showRedirectingMessage("Initializing ApeChain Mint Tracker..."));
   } else if (isAdminLoggedIn) {
       if (currentPageId === CONFIG_PANEL_PAGE_ID) {
-          contentToRender = (
+          contentToRender = contentWrapper(
             <Suspense fallback={showRedirectingMessage("Loading Admin Panel...")}>
               <AdminPanel
                   onLogout={handleAdminLogout}
@@ -673,21 +680,21 @@ const App: React.FC = () => {
             </Suspense>
           );
       } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
-          contentToRender = showRedirectingMessage("Redirecting to panel...");
+          contentToRender = contentWrapper(showRedirectingMessage("Redirecting to Admin Panel..."));
       } else {
-          contentToRender = renderMainContent();
+          contentToRender = renderMainContent(); // renderMainContent itself has flex-grow on main
       }
   } else {
       if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
-          contentToRender = (
+          contentToRender = contentWrapper(
             <Suspense fallback={showRedirectingMessage("Loading Admin Login...")}>
               <AdminLogin onLoginSuccess={handleAdminLoginSuccess} />
             </Suspense>
           );
       } else if (currentPageId === CONFIG_PANEL_PAGE_ID) {
-          contentToRender = showRedirectingMessage("Redirecting to login...");
+          contentToRender = contentWrapper(showRedirectingMessage("Redirecting to Admin Login..."));
       } else {
-          contentToRender = renderMainContent();
+          contentToRender = renderMainContent(); // renderMainContent itself has flex-grow on main
       }
   }
 
@@ -703,7 +710,10 @@ const App: React.FC = () => {
             Site Config
           </a>
       </header>
-      {contentToRender}
+      {/* Ensure the container for contentToRender allows it to grow */}
+      <div className="flex-grow flex flex-col w-full">
+         {contentToRender}
+      </div>
     </div>
   );
 };

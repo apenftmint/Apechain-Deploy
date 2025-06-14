@@ -1,5 +1,5 @@
 import React from 'react';
-import { AppTableDisplayMintData } from '../App';
+import { AppTableDisplayMintData } from '../App'; 
 import { APECHAIN_EXPLORER_URL, APECHAIN_MAGICKEDEN_COLLECTION_URL_PREFIX } from '../constants';
 
 interface MintsTableProps {
@@ -13,56 +13,26 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
 
   const truncateAddress = (address: string) => `${address.slice(0, 6)}...${address.slice(-4)}`;
 
-  const tableStyle: React.CSSProperties = {
-    width: '100%',
-    borderCollapse: 'collapse',
-    color: 'white', // Ensure text is visible
-    backgroundColor: 'rgba(10, 20, 40, 0.7)', // Dark semi-transparent background
-  };
-  const thStyle: React.CSSProperties = {
-    border: '1px solid #4A5568', // gray-600
-    padding: '8px',
-    textAlign: 'left',
-    backgroundColor: 'rgba(30, 41, 59, 0.8)', // slate-800
-    position: 'sticky', // Keep for usability
-    top: 0,
-    zIndex: 1,
-  };
-  const tdStyle: React.CSSProperties = {
-    border: '1px solid #374151', // gray-700
-    padding: '8px',
-    color: '#E2E8F0', // slate-200
-    verticalAlign: 'top', // Ensure content is visible if height is constrained
-  };
-   const linkStyle: React.CSSProperties = {
-    color: '#60A5FA', // blue-400
-    textDecoration: 'underline',
-  };
-
-
   return (
     <div 
+      className="overflow-x-auto rounded-lg shadow-2xl custom-scrollbar border border-slate-700 backdrop-blur-sm bg-slate-800/30 flex-grow" 
       style={{ 
-        overflow: 'auto', // Keep scrollbar functionality
         minHeight: '550px', 
-        maxHeight: 'calc(100vh - 280px)',
-        border: '1px solid #4A5568', // gray-600 border for the container
-        borderRadius: '8px', // Equivalent to rounded-lg
+        maxHeight: 'calc(100vh - 280px)' 
       }}
-      className="custom-scrollbar" // Keep custom scrollbar class if defined globally
     >
-      <table style={tableStyle}>
-        <thead>
+      <table className="min-w-full divide-y divide-slate-700">
+        <thead className="bg-slate-700/60 sticky top-0 z-10 backdrop-blur-md">
           <tr>
-            <th style={thStyle}>No.</th>
-            <th style={thStyle}>Date/Time Minted</th>
-            <th style={thStyle}>Collection</th>
-            <th style={{...thStyle, textAlign: 'center'}}>Price</th>
-            <th style={thStyle}>NFT Contract</th>
-            <th style={{...thStyle, textAlign: 'center'}}>Links</th>
+            <th scope="col" className="px-2 py-3 text-left text-xs sm:text-sm font-semibold text-slate-300 tracking-wider">No.</th>
+            <th scope="col" className="px-3 py-3.5 text-left text-xs sm:text-sm font-semibold text-slate-300 tracking-wider">Date/Time Minted</th>
+            <th scope="col" className="px-3 py-3.5 text-left text-xs sm:text-sm font-semibold text-slate-300 tracking-wider">Collection</th>
+            <th scope="col" className="px-2 py-3.5 text-center text-xs sm:text-sm font-semibold text-slate-300 tracking-wider">Price</th>
+            <th scope="col" className="px-3 py-3.5 text-left text-xs sm:text-sm font-semibold text-slate-300 tracking-wider">NFT Contract</th>
+            <th scope="col" className="px-3 py-3.5 text-center text-xs sm:text-sm font-semibold text-slate-300 tracking-wider">Links</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-slate-700">
           {mints.map((mint, index) => {
             const explorerAddressUrl = `${APECHAIN_EXPLORER_URL}/address/${mint.contractAddress}`;
             const explorerTxUrl = `${APECHAIN_EXPLORER_URL}/tx/${mint.txHash}`;
@@ -73,33 +43,37 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
                                         : mint.collectionName;
 
             return (
-              <tr key={`${mint.txHash}-${mint.logIndex}-${mint.contractAddress}-${index}`} style={{ backgroundColor: index % 2 === 0 ? 'rgba(0,0,0,0.1)' : 'rgba(20,30,50,0.1)'}}>
-                <td style={{...tdStyle, textAlign: 'center'}}>{index + 1}</td>
-                <td style={tdStyle}>{formatTimestampToDateTime(mint.timestamp)}</td>
-                <td style={{...tdStyle, maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}} title={`${collectionDisplayName} (Rep. Token ID: ${mint.tokenId})`}>
-                  {collectionDisplayName}
+              <tr key={`${mint.txHash}-${mint.logIndex}-${mint.contractAddress}-${index}`} className="hover:bg-slate-700/70 transition-colors duration-150">
+                <td className="whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-slate-400 text-center">{index + 1}</td>
+                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400">{formatTimestampToDateTime(mint.timestamp)}</td>
+                <td className="px-3 py-3 text-xs sm:text-sm max-w-[150px] truncate" title={`${collectionDisplayName} (Rep. Token ID: ${mint.tokenId})`}>
+                  {collectionDisplayName !== "Unnamed Collection" && collectionDisplayName !== "Unknown Collection" ? (
+                    <span className="text-fuchsia-400 font-medium">{collectionDisplayName}</span>
+                  ) : (
+                    <span className="text-fuchsia-300 italic" title={mint.contractAddress}>{collectionDisplayName}</span>
+                  )}
                 </td>
-                <td style={{...tdStyle, textAlign: 'center', color: mint.isFree ? '#4ADE80' : '#FACC15' }}> {/* green-400, amber-400 */}
+                <td className={`whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-center font-semibold ${mint.isFree ? 'text-green-400' : 'text-amber-400'}`}>
                   {mint.isFree ? 'Free' : (mint.mintPriceApe ? `${mint.mintPriceApe} APE` : 'Paid')}
                 </td>
-                <td style={tdStyle}>
+                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400">
                    <a 
                     href={explorerAddressUrl} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    style={linkStyle}
+                    className="text-teal-400 hover:text-teal-300 hover:underline"
                     title={`View contract ${mint.contractAddress} on ApeChain Explorer`}
                   >
                     {truncateAddress(mint.contractAddress)}
                   </a>
                 </td>
-                <td style={{...tdStyle, textAlign: 'center'}}>
-                  <div style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'}}>
+                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-center">
+                  <div className="flex items-center justify-center space-x-2 sm:space-x-3">
                     <a 
                       href={explorerTxUrl}
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      style={{...linkStyle, color: '#818CF8'}} // indigo-400
+                      className="text-indigo-400 hover:text-indigo-300 hover:underline"
                       aria-label={`View mint transaction ${mint.txHash.substring(0,10)}... for representative token ${mint.tokenId} on ApeChain Explorer`}
                       title="View Transaction on Explorer"
                     >
@@ -109,7 +83,7 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
                       href={magicEdenCollectionUrl}
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      style={{...linkStyle, color: '#34D399'}} // emerald-400
+                      className="text-emerald-400 hover:text-emerald-300 hover:underline"
                       aria-label={`View collection ${collectionDisplayName} on MagicEden`}
                       title="View Collection on MagicEden"
                     >
