@@ -203,13 +203,11 @@ const App: React.FC = () => {
         if (data.length > 0) {
             console.log("First collection item from API:", JSON.stringify(data[0], null, 2));
         }
-        alert(`Successfully fetched ${data.length} unique collections from the API for the table.`); // Verification Alert
         setTableData(data.sort((a,b) => b.timestamp - a.timestamp));
     } catch (e: any) {
         console.error("Failed to fetch unique collections table data (from API endpoint):", e);
         setTableDataError(`Error loading collections: ${e.message}. Please try refreshing.`);
         setTableData([]);
-        alert(`Error fetching unique collections: ${e.message}`); // Verification Alert for error
     } finally {
         setIsFetchingTableData(false);
         console.log("fetchUniqueCollectionsTableData (API) finished. isFetchingTableData:", false);
@@ -219,7 +217,6 @@ const App: React.FC = () => {
   useEffect(() => {
     const initialHash = window.location.hash || '#/';
     setCurrentRoute(initialHash);
-    // setIsAdminLoggedIn(localStorage.getItem(ADMIN_SESSION_KEY) === 'true'); // Removed, admin state is session-only and initialized to false
 
     const loadAllInitialData = async () => {
         console.log("loadAllInitialData: Starting all initial fetches.");

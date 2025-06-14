@@ -42,16 +42,21 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
         </thead>
         <tbody className="divide-y divide-slate-700">
           {mints.map((mint, index) => {
+            console.log(`[MintsTable Map Loop] Processing item ${index + 1}/${mints.length}: Contract ${mint.contractAddress}, TokenID ${mint.tokenId}`);
+            
             const explorerAddressUrl = `${APECHAIN_EXPLORER_URL}/address/${mint.contractAddress}`;
             const explorerTxUrl = `${APECHAIN_EXPLORER_URL}/tx/${mint.txHash}`;
             const magicEdenCollectionUrl = `${APECHAIN_MAGICKEDEN_COLLECTION_URL_PREFIX}${mint.contractAddress}`;
-
+            
             const collectionDisplayName = (mint.analysis?.collectionNameFromAnalyzer && mint.analysis.collectionNameFromAnalyzer !== "Unknown Collection" && mint.analysis.collectionNameFromAnalyzer !== "Unnamed Collection")
                                         ? mint.analysis.collectionNameFromAnalyzer
                                         : mint.collectionName;
+            
+            const rowKey = `${mint.txHash}-${mint.logIndex}-${mint.contractAddress}-${index}`; 
+            console.log(`[MintsTable Map Loop] Returning <tr> with key: ${rowKey}`);
 
             return (
-              <tr key={`${mint.txHash}-${mint.logIndex}-${mint.contractAddress}`} className="hover:bg-slate-700/70 transition-colors duration-150">
+              <tr key={rowKey} className="hover:bg-slate-700/70 transition-colors duration-150">
                 <td className="whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-slate-400 text-center">{index + 1}</td>
                 <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400">{formatTimestampToDateTime(mint.timestamp)}</td>
                 <td className="px-3 py-3 text-xs sm:text-sm max-w-[150px] truncate" title={`${collectionDisplayName} (Rep. Token ID: ${mint.tokenId})`}>
@@ -109,3 +114,4 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
 };
 
 export default MintsTable;
+
