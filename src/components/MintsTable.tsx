@@ -9,9 +9,12 @@ interface MintsTableProps {
 
 const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
   console.log("[MintsTable Component] Rendering. Received 'mints' prop. Length:", mints.length);
-  if (mints.length > 0) {
-    console.log("[MintsTable Component] First mint item in prop (simplified for brevity):", { txHash: mints[0].txHash, contractAddress: mints[0].contractAddress, collectionName: mints[0].collectionName });
+  if (mints.length > 0 && mints[0]) {
+    console.log("[MintsTable Component] First mint item in prop (simplified for brevity):", { txHash: mints[0].txHash, contractAddress: mints[0].contractAddress, collectionName: mints[0].collectionName, analysisStatus: mints[0].analysis?.finalStatus });
+  } else if (mints.length > 0 && !mints[0]) {
+    console.warn("[MintsTable Component] First mint item in prop is null or undefined, but mints array is not empty.");
   }
+
 
   const formatTimestampToDateTime = (timestamp: number): string => {
     return new Date(timestamp * 1000).toLocaleString();
@@ -40,6 +43,23 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
         </thead>
         <tbody className="divide-y divide-slate-700">
           {mints.map((mint, index) => {
+            if (!mint) {
+              console.error(`[MintsTable Row ${index + 1}] Mint item is null or undefined! Skipping row.`);
+              return null; 
+            }
+            
+            console.log(`[MintsTable Row ${index + 1}] Processing. Contract: ${mint.contractAddress}, TokenID: ${mint.tokenId}`);
+            
+            try {
+                // This log can be very verbose, enable if specific data inspection is needed.
+                // console.log(`[MintsTable Row ${index + 1}] Full Data (raw):`, mint);
+                // The JSON.parse(JSON.stringify(mint)) is for deep cloning if needed, but for logging, mint directly is fine.
+                // console.log(`[MintsTable Row ${index + 1}] Full Data (serialized for check):`, JSON.parse(JSON.stringify(mint)));
+            } catch (e: any) {
+                console.error(`[MintsTable Row ${index + 1}] Error serializing/logging mint object for contract ${mint.contractAddress}:`, e.message);
+                console.log(`[MintsTable Row ${index + 1}] Problematic mint object structure:`, Object.keys(mint)); // Log keys to avoid large object print
+            }
+
             const explorerAddressUrl = `${APECHAIN_EXPLORER_URL}/address/${mint.contractAddress}`;
             const explorerTxUrl = `${APECHAIN_EXPLORER_URL}/tx/${mint.txHash}`;
             const magicEdenCollectionUrl = `${APECHAIN_MAGICKEDEN_COLLECTION_URL_PREFIX}${mint.contractAddress}`;
@@ -49,7 +69,6 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
                                         : mint.collectionName;
             
             const rowKey = `${mint.txHash}-${mint.logIndex}-${mint.contractAddress}-${index}`;
-             // console.log(`[MintsTable Map Loop] Returning <tr> with key: ${rowKey}`); // Optional: keep if further debugging needed
 
             return (
               <tr key={rowKey} className="hover:bg-slate-700/70 transition-colors duration-150">
