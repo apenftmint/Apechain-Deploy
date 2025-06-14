@@ -200,9 +200,6 @@ const App: React.FC = () => {
         }
         const data: AppTableDisplayMintData[] = await response.json();
         console.log(`fetchUniqueCollectionsTableData: Received ${data.length} collections from API.`);
-        // if (data.length > 0) { // Keep this for debugging if needed
-        //     console.log("First collection item from API:", JSON.stringify(data[0], null, 2));
-        // }
         setTableData(data.sort((a,b) => b.timestamp - a.timestamp));
     } catch (e: any) {
         console.error("Failed to fetch unique collections table data (from API endpoint):", e);
@@ -220,11 +217,8 @@ const App: React.FC = () => {
 
     const loadAllInitialData = async () => {
         console.log("loadAllInitialData: Starting all initial fetches.");
-        // Set loading states true before fetches
-        setIsAdminSettingsLoading(true);
-        setIsSeenPopupsLoading(true);
-        setIsFetchingTableData(true);
-
+        // Individual loading flags are set by their respective functions.
+        // `Promise.allSettled` ensures all complete before proceeding.
         await Promise.allSettled([
             loadAdminSettings(),
             loadSeenPopups(),
@@ -246,7 +240,7 @@ const App: React.FC = () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Removed dependencies as they are stable or managed by their own loading states
+  }, []); 
 
   useEffect(() => {
     document.body.style.paddingTop = `${calculateBodyPaddingTop(effectiveTwitterId, effectiveAds)}px`;
@@ -256,7 +250,7 @@ const App: React.FC = () => {
     const pageId = getPageFromHash(currentRoute);
     let newHashTarget: string | null = null;
 
-    if (initialAppSetupComplete) { // Only attempt redirects after initial setup is confirmed
+    if (initialAppSetupComplete) { 
         if (pageId === CONFIG_LOGIN_PAGE_ID && isAdminLoggedIn) {
             newHashTarget = `#/?${PAGE_QUERY_PARAM}=${CONFIG_PANEL_PAGE_ID}`;
         } else if (pageId === CONFIG_PANEL_PAGE_ID && !isAdminLoggedIn) {
@@ -335,7 +329,6 @@ const App: React.FC = () => {
       return updatedPersistedMints;
     });
 
-    // POST new mint to backend, then refresh table data from backend
     try {
         const response = await fetch(UNIQUE_COLLECTIONS_API_ENDPOINT, {
             method: 'POST',
@@ -348,7 +341,7 @@ const App: React.FC = () => {
         } else {
             const responseData = await response.json();
             console.log(`Successfully POSTed new mint ${newMint.txHash} to collections API. Server response: ${responseData.message}`);
-            fetchUniqueCollectionsTableData(); // Refresh table data from API after POST
+            fetchUniqueCollectionsTableData(); 
         }
     } catch (e) {
         console.error("Error POSTing new mint to collections API:", e);
@@ -357,10 +350,10 @@ const App: React.FC = () => {
   }, [fetchUniqueCollectionsTableData]);
 
   const handleSetupComplete = useCallback(() => {
-    setIsLoading(false); // Blockchain service connected
+    setIsLoading(false); 
   }, []);
 
-  useEffect(() => { // Blockchain service listener setup
+  useEffect(() => { 
     const initService = async () => {
       setIsLoading(true); setError(null); setRateLimitWarning(null);
       try {
@@ -379,19 +372,17 @@ const App: React.FC = () => {
     };
   }, [handleNewMint, handleError, handleSetupComplete]);
 
- useEffect(() => { // Popup and sound notification logic
+ useEffect(() => { 
     if (isInitialLoadRef.current && initialAppSetupComplete && !isLoading && !isFetchingTableData && !isAdminSettingsLoading && !isSeenPopupsLoading) {
       isInitialLoadRef.current = false;
       console.log("Popup useEffect: Initial app setup is now considered fully complete for popups.");
     }
 
-    // Consolidated loading check
     const anyCriticalLoading = isLoading || isFetchingTableData || isAdminSettingsLoading || isSeenPopupsLoading;
 
     if (isInitialLoadRef.current || !initialAppSetupComplete || anyCriticalLoading) {
         if (!userInteracted && speechSynthesis.speaking) speechSynthesis.cancel();
         if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
-        // console.debug("Popup useEffect: Skipping due to ongoing setup/loading.", {isInitialLoadRef: isInitialLoadRef.current, initialAppSetupComplete, anyCriticalLoading});
         return;
     }
     console.log("Popup useEffect: Proceeding with notifications. tableData length:", tableData.length);
@@ -404,7 +395,7 @@ const App: React.FC = () => {
             console.log(`Popup useEffect: Triggering popup for ${mint.contractAddress}`);
             setActivePopups(prev => prev.some(p => p.txHash === mint.txHash && p.logIndex === mint.logIndex) ? prev : [...prev, { ...mint, popupId: `${mint.contractAddress}-${mint.tokenId}-${Date.now()}` }]);
 
-            if (userInteracted && soundEnabled && (tableFilter === 'free' || tableFilter === 'all')) { // Sound for 'all' if free
+            if (userInteracted && soundEnabled && (tableFilter === 'free' || tableFilter === 'all')) { 
                 const name = (mint.analysis?.collectionNameFromAnalyzer?.replace(/unknown|unnamed/i,'').trim()) || mint.collectionName.replace(/unknown|unnamed/i,'').trim() || `collection ${mint.contractAddress.slice(0,6)}`;
                 const text = `Hey, ${name} looks okay and is a free mint. Check it out!`;
                 console.log(`Popup useEffect: Speaking: "${text}"`);
@@ -452,17 +443,13 @@ const App: React.FC = () => {
   };
 
   const getFilteredAndPaginatedTableData = () => {
-    // console.log("[getFilteredAndPaginatedTableData] Called. tableData length:", tableData.length, "Current filter:", tableFilter, "Items per page:", tableItemsPerPage);
     let filteredData = tableData;
     if (tableFilter === 'free') {
         filteredData = tableData.filter(mint => mint.isFree);
-        // console.log("[getFilteredAndPaginatedTableData] After 'free' filter, length:", filteredData.length);
     } else if (tableFilter === 'paid') {
         filteredData = tableData.filter(mint => !mint.isFree);
-        // console.log("[getFilteredAndPaginatedTableData] After 'paid' filter, length:", filteredData.length);
     }
     const paginatedData = filteredData.slice(0, tableItemsPerPage);
-    // console.log("[getFilteredAndPaginatedTableData] After pagination, returning length:", paginatedData.length);
     return paginatedData;
   };
 
@@ -487,7 +474,6 @@ const App: React.FC = () => {
 
   const renderMainContent = () => (
     <>
-      {/* Moved specific initial loading indicators to the main app loading check below */}
       { adminSettingsError && (
           <div className="w-full max-w-4xl mx-auto text-center p-3 bg-red-800/60 rounded-lg shadow-lg border border-red-600 my-2 backdrop-blur-sm text-sm">
               <p className="text-slate-200">{adminSettingsError}</p>
@@ -513,7 +499,7 @@ const App: React.FC = () => {
             <p className="text-slate-300">{error || "Could not connect to the ApeChain network."}</p>
           </div>
         )}
-        {isLoading && initialAppSetupComplete && ( // Show this only if initial setup is done, but blockchain is still connecting/reconnecting
+        {isLoading && initialAppSetupComplete && ( 
           <div className="flex flex-col items-center justify-center text-center p-6 w-full max-w-4xl mx-auto mb-6">
             <LoadingSpinner />
             <p className="mt-4 text-lg text-slate-300">{providerOk ? "Connecting to ApeChain for live mints..." : "Initializing blockchain connection..."}</p>
@@ -537,7 +523,6 @@ const App: React.FC = () => {
             <p className="text-slate-300">No live mints detected yet.</p>
           </div>
         )}
-        { /* Main two-column layout, now also implicitly depends on initialAppSetupComplete via the parent contentToRender logic */ }
         { !isLoading && (
           <div className="w-full max-w-8xl mx-auto flex flex-col md:flex-row md:space-x-6 lg:space-x-8 mt-4">
             <div className="w-full md:w-2/5 lg:w-1/3 flex flex-col space-y-8 mb-8 md:mb-0">
@@ -570,7 +555,7 @@ const App: React.FC = () => {
               <section className="p-4 sm:p-6 bg-slate-800/70 rounded-xl shadow-2xl h-full border border-slate-700 backdrop-blur-sm flex flex-col">
                 <div className="flex flex-col sm:flex-row justify-between items-start mb-4">
                   <h2 className="text-2xl sm:text-3xl font-semibold text-teal-400 mb-3 sm:mb-0">Unique Collections <span className="text-sm text-slate-400">(Last 24h, from API)</span></h2>
-                  {(tableFilter === 'free' || tableFilter === 'all') && ( // Show sound toggle if free items might appear
+                  {(tableFilter === 'free' || tableFilter === 'all') && ( 
                       <button onClick={toggleSound} className={`px-3 py-2 text-xs sm:text-sm rounded-lg shadow-lg ${soundEnabled ? 'bg-red-500' : 'bg-sky-500'} text-white`}>
                           Sound Alerts: {soundEnabled ? 'ON' : 'OFF'}
                       </button>
@@ -591,7 +576,7 @@ const App: React.FC = () => {
                         ))}
                     </div>
                 </div>
-                {isFetchingTableData && initialAppSetupComplete && ( // Show refresh loading for table only after initial setup done
+                {isFetchingTableData && initialAppSetupComplete && ( 
                     <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
                         <LoadingSpinner /><p className="mt-3">Refreshing collections data...</p>
                     </div>
@@ -607,7 +592,7 @@ const App: React.FC = () => {
                 )}
                 {!isFetchingTableData && !tableDataError && getFilteredAndPaginatedTableData().length === 0 && (
                   <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                    {tableData.length === 0 && !isFetchingTableData // Ensure not to show this if it's just about to fetch or is fetching
+                    {tableData.length === 0 && !isFetchingTableData 
                         ? <p>No collections from the last 24 hours found (via API).</p>
                         : <p>No collections match the current "{tableFilter}" filter.</p>
                     }
@@ -657,21 +642,21 @@ const App: React.FC = () => {
               />
             </Suspense>
           );
-      } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) { // Logged in but on login page
-          contentToRender = showInitializingAppMessage("Redirecting to Admin Panel..."); // Should be redirected by useEffect
-      } else { // Logged in, on main site
+      } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) { 
+          contentToRender = showInitializingAppMessage("Redirecting to Admin Panel..."); 
+      } else { 
           contentToRender = renderMainContent();
       }
-  } else { // Not logged in
+  } else { 
       if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
           contentToRender = (
             <Suspense fallback={showInitializingAppMessage("Loading Admin Login...")}>
               <AdminLogin onLoginSuccess={handleAdminLoginSuccess} />
             </Suspense>
           );
-      } else if (currentPageId === CONFIG_PANEL_PAGE_ID) { // Not logged in but on panel page
-          contentToRender = showInitializingAppMessage("Redirecting to Admin Login..."); // Should be redirected by useEffect
-      } else { // Not logged in, on main site
+      } else if (currentPageId === CONFIG_PANEL_PAGE_ID) { 
+          contentToRender = showInitializingAppMessage("Redirecting to Admin Login..."); 
+      } else { 
           contentToRender = renderMainContent();
       }
   }
