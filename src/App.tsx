@@ -474,7 +474,16 @@ const App: React.FC = () => {
   const renderMainContent = () => {
     const processedTableDataForDisplay = getFilteredAndPaginatedTableData();
 
-    // This specific loading UI shows only if initial setup is complete, but table is still fetching (e.g., refresh)
+    // Diagnostic logs for table rendering
+    console.log('[renderMainContent] Table rendering check:');
+    console.log(`  - isFetchingTableData: ${isFetchingTableData}`);
+    console.log(`  - tableDataError: ${tableDataError}`);
+    console.log(`  - tableData.length: ${tableData.length}`);
+    console.log(`  - processedTableDataForDisplay.length: ${processedTableDataForDisplay.length}`);
+    console.log(`  - Current tableFilter: ${tableFilter}`);
+    console.log(`  - Current tableItemsPerPage: ${tableItemsPerPage}`);
+
+
     const tableLoadingIndicator = (
         <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
             <LoadingSpinner /><p className="mt-3">Refreshing collections data...</p>
@@ -490,7 +499,7 @@ const App: React.FC = () => {
     
     const tableNoDataIndicator = (
         <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-            {tableData.length === 0 && !tableDataError
+            {tableData.length === 0 && !tableDataError && !isFetchingTableData
                 ? <p>No collections from the last 24 hours found (via API).</p>
                 : <p>No collections match the current "{tableFilter}" filter.</p>
             }
