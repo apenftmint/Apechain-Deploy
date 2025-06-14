@@ -200,12 +200,15 @@ const App: React.FC = () => {
         }
         const data: AppTableDisplayMintData[] = await response.json();
         console.log(`fetchUniqueCollectionsTableData: Received ${data.length} collections from API.`);
+        if (data.length > 0) {
+            console.log("First collection item from API:", JSON.stringify(data[0], null, 2));
+        }
         alert(`Successfully fetched ${data.length} unique collections from the API for the table.`); // Verification Alert
         setTableData(data.sort((a,b) => b.timestamp - a.timestamp));
     } catch (e: any) {
         console.error("Failed to fetch unique collections table data (from API endpoint):", e);
         setTableDataError(`Error loading collections: ${e.message}. Please try refreshing.`);
-        setTableData([]); 
+        setTableData([]);
         alert(`Error fetching unique collections: ${e.message}`); // Verification Alert for error
     } finally {
         setIsFetchingTableData(false);
@@ -241,7 +244,7 @@ const App: React.FC = () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
   useEffect(() => {
     document.body.style.paddingTop = `${calculateBodyPaddingTop(effectiveTwitterId, effectiveAds)}px`;
@@ -251,7 +254,7 @@ const App: React.FC = () => {
     const pageId = getPageFromHash(currentRoute);
     let newHashTarget: string | null = null;
 
-    if (initialAppSetupComplete) { 
+    if (initialAppSetupComplete) {
         if (pageId === CONFIG_LOGIN_PAGE_ID && isAdminLoggedIn) {
             newHashTarget = `#/?${PAGE_QUERY_PARAM}=${CONFIG_PANEL_PAGE_ID}`;
         } else if (pageId === CONFIG_PANEL_PAGE_ID && !isAdminLoggedIn) {
@@ -379,24 +382,30 @@ const App: React.FC = () => {
  useEffect(() => { // Popup and sound notification logic
     if (isInitialLoadRef.current && initialAppSetupComplete && !isLoading && !isFetchingTableData && !isAdminSettingsLoading && !isSeenPopupsLoading) {
       isInitialLoadRef.current = false; // Initial setup is complete
+      console.log("Popup useEffect: Initial app setup is now considered fully complete for popups.");
     }
 
     if (isInitialLoadRef.current || !initialAppSetupComplete || isSeenPopupsLoading || isAdminSettingsLoading || isFetchingTableData || isLoading) {
         if (!userInteracted && speechSynthesis.speaking) speechSynthesis.cancel();
         if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
+        // console.debug("Popup useEffect: Skipping due to ongoing setup/loading.", {isInitialLoadRef: isInitialLoadRef.current, initialAppSetupComplete, isSeenPopupsLoading, isAdminSettingsLoading, isFetchingTableData, isLoading});
         return;
     }
+    console.log("Popup useEffect: Proceeding with notifications. tableData length:", tableData.length);
 
     let notificationProcessed = false;
-    for (const mint of tableData) { 
+    for (const mint of tableData) {
         if (playedNotificationForContractsRef.current.has(mint.contractAddress) || notificationProcessed) continue;
+        // console.log(`Popup useEffect: Checking mint ${mint.contractAddress} - isFree: ${mint.isFree}, analysis status: ${mint.analysis?.finalStatus}`);
 
         if (mint.isFree && mint.analysis && mint.analysis.finalStatus === 'OK') {
+            console.log(`Popup useEffect: Triggering popup for ${mint.contractAddress}`);
             setActivePopups(prev => prev.some(p => p.txHash === mint.txHash && p.logIndex === mint.logIndex) ? prev : [...prev, { ...mint, popupId: `${mint.contractAddress}-${mint.tokenId}-${Date.now()}` }]);
 
             if (userInteracted && soundEnabled && tableFilter === 'free') {
                 const name = (mint.analysis?.collectionNameFromAnalyzer?.replace(/unknown|unnamed/i,'').trim()) || mint.collectionName.replace(/unknown|unnamed/i,'').trim() || `collection ${mint.contractAddress.slice(0,6)}`;
                 const text = `Hey, ${name} looks okay and is a free mint. Check it out!`;
+                console.log(`Popup useEffect: Speaking: "${text}"`);
                 if (speechSynthesis.speaking) speechSynthesis.cancel();
                 if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
                 utteranceRef.current = new SpeechSynthesisUtterance(text);
@@ -405,7 +414,7 @@ const App: React.FC = () => {
                 utteranceRef.current.onerror = e => { if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current); console.error('Speech error:', e.error);};
                 speechSynthesis.speak(utteranceRef.current);
                 speechTimeoutRef.current = window.setTimeout(() => { if (speechSynthesis.speaking && utteranceRef.current?.text === text) speechSynthesis.cancel(); }, 10000);
-                notificationProcessed = true; 
+                notificationProcessed = true;
             }
             playedNotificationForContractsRef.current.add(mint.contractAddress);
             fetch(MARK_POPUP_SEEN_API_ENDPOINT, {
@@ -441,10 +450,21 @@ const App: React.FC = () => {
   };
 
   const getFilteredAndPaginatedTableData = () => {
+    console.log("[getFilteredAndPaginatedTableData] Called. tableData length:", tableData.length, "Current filter:", tableFilter, "Items per page:", tableItemsPerPage);
     let filteredData = tableData;
-    if (tableFilter === 'free') filteredData = tableData.filter(mint => mint.isFree);
-    else if (tableFilter === 'paid') filteredData = tableData.filter(mint => !mint.isFree);
-    return filteredData.slice(0, tableItemsPerPage);
+    if (tableFilter === 'free') {
+        filteredData = tableData.filter(mint => mint.isFree);
+        console.log("[getFilteredAndPaginatedTableData] After 'free' filter, length:", filteredData.length);
+    } else if (tableFilter === 'paid') {
+        filteredData = tableData.filter(mint => !mint.isFree);
+        console.log("[getFilteredAndPaginatedTableData] After 'paid' filter, length:", filteredData.length);
+    }
+    const paginatedData = filteredData.slice(0, tableItemsPerPage);
+    console.log("[getFilteredAndPaginatedTableData] After pagination, returning length:", paginatedData.length);
+    if (paginatedData.length > 0 && tableData.length > 0) { // Also check tableData to avoid error on empty
+        // console.log("[getFilteredAndPaginatedTableData] First item of paginated data:", JSON.stringify(paginatedData[0], null, 2));
+    }
+    return paginatedData;
   };
 
   const handleAdminLoginSuccess = () => {
@@ -472,7 +492,7 @@ const App: React.FC = () => {
 
   const renderMainContent = () => (
     <>
-      { (isAdminSettingsLoading && !initialAppSetupComplete) && ( 
+      { (isAdminSettingsLoading && !initialAppSetupComplete) && (
         <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-[200]">
             <LoadingSpinner /><p className="ml-3 text-slate-300">Loading site configuration...</p>
         </div>
@@ -482,7 +502,7 @@ const App: React.FC = () => {
               <p className="text-slate-200">{adminSettingsError}</p>
           </div>
       )}
-       { (isSeenPopupsLoading && !initialAppSetupComplete) && ( 
+       { (isSeenPopupsLoading && !initialAppSetupComplete) && (
         <div className="fixed inset-x-0 top-1/2 transform -translate-y-1/2 bg-slate-900/50 flex items-center justify-center z-[190] p-2 text-sm">
             <LoadingSpinner /><p className="ml-2 text-slate-300">Loading popup history...</p>
         </div>
@@ -542,7 +562,7 @@ const App: React.FC = () => {
                   <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar" style={{maxHeight: 'calc(70vh - 120px)'}}>
                     {displayedLiveFreeMints.map((mint) => <MintCard key={`${mint.txHash}-${mint.logIndex}-free`} mint={mint} />)}
                   </div>
-                ) : providerOk && !error && ( 
+                ) : providerOk && !error && (
                   <div className="p-6 h-40 flex items-center justify-center border border-slate-700 rounded-xl"> <p className="text-slate-400 text-sm">Listening for free mints...</p> </div>
                 )}
               </div>
@@ -605,8 +625,8 @@ const App: React.FC = () => {
                 )}
                 {!isFetchingTableData && !tableDataError && getFilteredAndPaginatedTableData().length === 0 && (
                   <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                    {tableData.length === 0 
-                        ? <p>No collections from the last 24 hours found (via API). This could be due to an API error, no recent data in vaa.json, or all data being older than 24 hours.</p> 
+                    {tableData.length === 0
+                        ? <p>No collections from the last 24 hours found (via API). This could be due to an API error, no recent data, or all data being older than 24 hours.</p>
                         : <p>No collections match the current "{tableFilter}" filter from the available data ({tableData.length} total from API).</p>
                     }
                   </div>
@@ -637,10 +657,10 @@ const App: React.FC = () => {
 
   if (!initialAppSetupComplete && (currentPageId === CONFIG_LOGIN_PAGE_ID || currentPageId === CONFIG_PANEL_PAGE_ID)) {
     contentToRender = showRedirectingMessage("Initializing site configuration...");
-  } else if (!initialAppSetupComplete && !currentPageId) { 
+  } else if (!initialAppSetupComplete && !currentPageId) {
     contentToRender = showRedirectingMessage("Initializing ApeChain Mint Tracker...");
   }
-  else if (isAdminLoggedIn) { 
+  else if (isAdminLoggedIn) {
       if (currentPageId === CONFIG_PANEL_PAGE_ID) {
           contentToRender = (
             <Suspense fallback={showRedirectingMessage("Loading Admin Panel...")}>
@@ -652,21 +672,21 @@ const App: React.FC = () => {
               />
             </Suspense>
           );
-      } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) { 
-          contentToRender = showRedirectingMessage("Redirecting to panel..."); 
-      } else { 
+      } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
+          contentToRender = showRedirectingMessage("Redirecting to panel...");
+      } else {
           contentToRender = renderMainContent();
       }
-  } else { 
+  } else {
       if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
           contentToRender = (
             <Suspense fallback={showRedirectingMessage("Loading Admin Login...")}>
               <AdminLogin onLoginSuccess={handleAdminLoginSuccess} />
             </Suspense>
           );
-      } else if (currentPageId === CONFIG_PANEL_PAGE_ID) { 
-          contentToRender = showRedirectingMessage("Redirecting to login..."); 
-      } else { 
+      } else if (currentPageId === CONFIG_PANEL_PAGE_ID) {
+          contentToRender = showRedirectingMessage("Redirecting to login...");
+      } else {
           contentToRender = renderMainContent();
       }
   }
@@ -675,7 +695,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-slate-100 flex flex-col items-center selection:bg-fuchsia-500 selection:text-white flex-grow">
       <header className="app-main-header flex justify-between items-center px-4">
-          <div></div> 
+          <div></div>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-fuchsia-500 to-indigo-600 pb-1 drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
             {APP_TITLE}
           </h1>
