@@ -1,19 +1,17 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite' // As per user's provided Tailwind docs for Vite
+import path from 'path';
+import { defineConfig, loadEnv } from 'vite';
 
-// https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [
-    react(),
-    tailwindcss(), // Initialize the Tailwind CSS plugin for Vite
-  ],
-  // server: {
-  //   // Optional: configure server settings like port
-  //   port: 3000, 
-  // },
-  // build: {
-  //   // Optional: configure build settings
-  //   outDir: 'dist',
-  // }
-})
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, '.', '');
+    return {
+      define: {
+        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+      },
+      resolve: {
+        alias: {
+          '@': path.resolve(__dirname, '.'),
+        }
+      }
+    };
+});

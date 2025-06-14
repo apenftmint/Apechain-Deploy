@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 // Netlify Function: collections-manager.ts
 import type { Handler, HandlerEvent, HandlerContext } from "@netlify/functions";
 import { MintData, CollectionAnalysisResult, FinalCollectionStatus, TokenMetadata, MetadataStatus, NameSymbolStatus } from '../../src/types'; // Adjusted path assuming types.ts is in src

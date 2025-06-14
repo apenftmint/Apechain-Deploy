@@ -407,9 +407,10 @@ class BlockchainService {
     
     let currentBlockNumber = -1;
     try {
-        const blockNumberPromises = eligibleHttpEndpoints.map(ep => 
-            this.withRetry(() => (ep.providerInstance as JsonRpcProvider).getBlockNumber(), `HTTPPoll:getBlockNumber`, ep.url, 1, 1000)
-              .catch(e => { console.warn(`[HTTP Poll] getBlockNumber failed for ${ep.url}: ${e.message}`); return Promise.reject(e); })
+        const blockNumberPromises: Promise<number>[] = eligibleHttpEndpoints.map(ep => 
+            this.withRetry<number>(() => (ep.providerInstance as JsonRpcProvider).getBlockNumber(), `HTTPPoll:getBlockNumber`, ep.url, 1, 1000)
+            // Removed .catch here; withRetry will throw if all attempts fail for an endpoint.
+            // customPromiseAny will handle these rejections.
         );
         currentBlockNumber = await customPromiseAny<number>(blockNumberPromises);
     } catch (error) {
@@ -431,13 +432,14 @@ class BlockchainService {
       console.debug(`[HTTP Poll] Racing getLogs from ${fromBlock} to ${toBlock} across ${eligibleHttpEndpoints.length} RPCs.`);
 
       const getLogsPromises: Promise<GetLogsRaceResult>[] = eligibleHttpEndpoints.map(ep =>
-        this.withRetry(() => (ep.providerInstance as JsonRpcProvider).getLogs({
+        this.withRetry<EthersLog[]>(() => (ep.providerInstance as JsonRpcProvider).getLogs({
           ...this.eventFilter,
           fromBlock,
           toBlock,
         }), `HTTPPoll:getLogs`, ep.url, 1, 3000) 
         .then(logs => ({ logs, provider: ep.providerInstance as JsonRpcProvider, url: ep.url } as GetLogsRaceResult))
-        .catch(e => { console.warn(`[HTTP Poll] getLogs failed for ${ep.url}: ${e.message}`); return Promise.reject(e);})
+        // Removed .catch here; withRetry will throw if all attempts fail for an endpoint.
+        // The .then part could also fail (though less likely here), customPromiseAny handles rejections.
       );
 
       try {
