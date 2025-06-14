@@ -32,7 +32,8 @@ import {
     LOCAL_STORAGE_KEY, // Still used for allTimeMints backup
     LIVE_FREE_MINTS_CACHE_KEY, // Used for live free mints feed
     LIVE_PAID_MINTS_CACHE_KEY,  // Used for live paid mints feed
-    SOUND_ENABLED_PREFERENCE_KEY
+    SOUND_ENABLED_PREFERENCE_KEY,
+    ADMIN_SESSION_KEY // Use this for consistent session management
 } from './constants';
 
 const AdminLogin = lazy(() => import('./components/admin/AdminLogin'));
@@ -90,7 +91,8 @@ const App: React.FC = () => {
   const playedNotificationForContractsRef = useRef(new Set<string>());
 
   const [currentRoute, setCurrentRoute] = useState<string>(window.location.hash || '#/');
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false); // Initialize to false
+  // Initialize isAdminLoggedIn from localStorage using ADMIN_SESSION_KEY
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => localStorage.getItem(ADMIN_SESSION_KEY) === 'true');
 
   const [effectiveTwitterId, setEffectiveTwitterId] = useState<string>(DEFAULT_ADVERTISEMENT_TWITTER_USER_ID);
   const [effectiveAds, setEffectiveAds] = useState<NftAdDetails[]>(DEFAULT_NFT_ADVERTISEMENTS_LIST);
@@ -108,7 +110,7 @@ const App: React.FC = () => {
         setIsAdminSettingsLoading(true);
         setAdminSettingsError(null);
     }
-    console.log("loadAdminSettings: Starting...");
+    console.log(`loadAdminSettings: Starting... (isRefresh: ${isRefresh})`);
     try {
         const response = await fetch(SETTINGS_API_ENDPOINT);
         if (!response.ok) {
@@ -157,7 +159,7 @@ const App: React.FC = () => {
         setEffectiveAds(DEFAULT_NFT_ADVERTISEMENTS_LIST);
     } finally {
         if (!isRefresh) setIsAdminSettingsLoading(false);
-        console.log("loadAdminSettings finished. isAdminSettingsLoading (if not refresh):", isRefresh ? "N/A (refresh)" : false);
+        console.log("loadAdminSettings finished. isAdminSettingsLoading (if not refresh):", isRefresh ? "N/A (refresh, not setting loading state)" : false);
     }
   }, []);
 
@@ -223,7 +225,7 @@ const App: React.FC = () => {
             fetchUniqueCollectionsTableData()
         ]);
         console.log("loadAllInitialData: All initial fetches settled.");
-        setInitialAppSetupComplete(true); 
+        setInitialAppSetupComplete(true);
         console.log("loadAllInitialData: initialAppSetupComplete SET TO TRUE.");
     };
 
@@ -238,7 +240,7 @@ const App: React.FC = () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []);
 
   useEffect(() => {
     document.body.style.paddingTop = `${calculateBodyPaddingTop(effectiveTwitterId, effectiveAds)}px`;
@@ -246,30 +248,32 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const pageId = getPageFromHash(currentRoute);
-    console.log(`[App Routing Check] Current Route: ${currentRoute}, Page ID: ${pageId}, IsAdminLoggedIn: ${isAdminLoggedIn}, InitialSetupComplete: ${initialAppSetupComplete}`);
+    console.log(`[App Routing Check Effect] Current Route: ${currentRoute}, Page ID: ${pageId}, IsAdminLoggedIn: ${isAdminLoggedIn}, InitialSetupComplete: ${initialAppSetupComplete}`);
 
     if (!initialAppSetupComplete) {
-      console.log("[App Routing Check] Initial setup not complete. Skipping routing logic.");
-      return; 
+      console.log("[App Routing Decision] Initial setup not complete. Skipping routing logic.");
+      return;
     }
 
     let newHashTarget: string | null = null;
 
     if (pageId === CONFIG_LOGIN_PAGE_ID && isAdminLoggedIn) {
         newHashTarget = `#/?${PAGE_QUERY_PARAM}=${CONFIG_PANEL_PAGE_ID}`;
-        console.log(`[App Routing Logic] Admin logged in, on login page. Redirecting to panel: ${newHashTarget}`);
+        console.log(`[App Routing Decision] Admin logged in, on login page. Should redirect to panel: ${newHashTarget}`);
     } else if (pageId === CONFIG_PANEL_PAGE_ID && !isAdminLoggedIn) {
         newHashTarget = `#/?${PAGE_QUERY_PARAM}=${CONFIG_LOGIN_PAGE_ID}`;
-        console.log(`[App Routing Logic] Admin NOT logged in, on panel page. Redirecting to login: ${newHashTarget}`);
+        console.log(`[App Routing Decision] Admin NOT logged in, on panel page. Should redirect to login: ${newHashTarget}`);
+    } else {
+        console.log(`[App Routing Decision] No redirect conditions met. Current page: ${pageId}, LoggedIn: ${isAdminLoggedIn}`);
     }
 
     if (newHashTarget && newHashTarget !== window.location.hash) {
-        console.log(`[App Routing Action] Changing hash to: ${newHashTarget}`);
+        console.log(`[App Routing Action] Changing hash from ${window.location.hash} to: ${newHashTarget}`);
         window.location.hash = newHashTarget;
     }
   }, [currentRoute, isAdminLoggedIn, initialAppSetupComplete]);
 
-  useEffect(() => { 
+  useEffect(() => {
     try {
       const storedAllTimeMintsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (storedAllTimeMintsRaw) setAllTimeMints(JSON.parse(storedAllTimeMintsRaw).sort((a:MintData,b:MintData) => b.timestamp - a.timestamp));
@@ -311,7 +315,7 @@ const App: React.FC = () => {
         setLivePaidMints(prevMints => processMintsForLiveFeed(prevMints, LIVE_PAID_MINTS_CACHE_KEY));
     }
 
-    setAllTimeMints(prevAllMints => { 
+    setAllTimeMints(prevAllMints => {
       let updatedPersistedMints = [newMint, ...prevAllMints];
       const uniqueEventsMap = new Map<string, MintData>();
       updatedPersistedMints.forEach(mint => {
@@ -346,7 +350,7 @@ const App: React.FC = () => {
         } else {
             const responseData = await response.json();
             console.log(`Successfully POSTed new mint ${newMint.txHash} to collections API. Server response: ${responseData.message}`);
-            fetchUniqueCollectionsTableData(); 
+            fetchUniqueCollectionsTableData();
         }
     } catch (e) {
         console.error("Error POSTing new mint to collections API:", e);
@@ -355,11 +359,11 @@ const App: React.FC = () => {
   }, [fetchUniqueCollectionsTableData]);
 
   const handleSetupComplete = useCallback(() => {
-    setIsLoading(false); 
+    setIsLoading(false);
     console.log("Blockchain service setup complete. isLoading set to false.");
   }, []);
 
-  useEffect(() => { 
+  useEffect(() => {
     const initService = async () => {
       setIsLoading(true); setError(null); setRateLimitWarning(null);
       try {
@@ -370,7 +374,7 @@ const App: React.FC = () => {
         setProviderOk(false); setIsLoading(false);
       }
     };
-    if (initialAppSetupComplete) { 
+    if (initialAppSetupComplete) {
         initService();
     }
     return () => {
@@ -380,7 +384,7 @@ const App: React.FC = () => {
     };
   }, [handleNewMint, handleError, handleSetupComplete, initialAppSetupComplete]);
 
- useEffect(() => { 
+ useEffect(() => {
     if (isInitialLoadRef.current && initialAppSetupComplete && !isLoading && !isFetchingTableData && !isAdminSettingsLoading && !isSeenPopupsLoading) {
       isInitialLoadRef.current = false;
       console.log("Popup useEffect: Initial app setup is now considered fully complete for popups.");
@@ -403,7 +407,7 @@ const App: React.FC = () => {
             console.log(`Popup useEffect: Triggering popup for ${mint.contractAddress}`);
             setActivePopups(prev => prev.some(p => p.txHash === mint.txHash && p.logIndex === mint.logIndex) ? prev : [...prev, { ...mint, popupId: `${mint.contractAddress}-${mint.tokenId}-${Date.now()}` }]);
 
-            if (userInteracted && soundEnabled && (tableFilter === 'free' || tableFilter === 'all')) { 
+            if (userInteracted && soundEnabled && (tableFilter === 'free' || tableFilter === 'all')) {
                 const name = (mint.analysis?.collectionNameFromAnalyzer?.replace(/unknown|unnamed/i,'').trim()) || mint.collectionName.replace(/unknown|unnamed/i,'').trim() || `collection ${mint.contractAddress.slice(0,6)}`;
                 const text = `Hey, ${name} looks okay and is a free mint. Check it out!`;
                 console.log(`Popup useEffect: Speaking: "${text}"`);
@@ -463,19 +467,23 @@ const App: React.FC = () => {
 
 
   const handleAdminLoginSuccess = () => {
-    console.log("[handleAdminLoginSuccess] Called. Setting isAdminLoggedIn to true.");
-    localStorage.setItem("isAdminLoggedInApeChain", "true"); // Persist login for refresh
+    console.log("[handleAdminLoginSuccess] Called. Setting isAdminLoggedIn to true and ADMIN_SESSION_KEY.");
+    localStorage.setItem(ADMIN_SESSION_KEY, "true");
     setIsAdminLoggedIn(true);
+    loadAdminSettings(true); // CRITICAL: Pass true to indicate refresh, not initial load.
+    // Routing effect will handle the redirect if on login page.
   };
 
   const handleAdminLogout = () => {
-    console.log("[handleAdminLogout] Called. Setting isAdminLoggedIn to false.");
-    localStorage.removeItem("isAdminLoggedInApeChain"); // Clear persisted login
+    console.log("[handleAdminLogout] Called. Setting isAdminLoggedIn to false and removing ADMIN_SESSION_KEY.");
+    localStorage.removeItem(ADMIN_SESSION_KEY);
     setIsAdminLoggedIn(false);
+    loadAdminSettings(true); // CRITICAL: Pass true to indicate refresh.
+    // Routing effect will handle the redirect if on panel page.
   };
 
   const handleAdminSettingsSave = () => {
-    loadAdminSettings(true); 
+    loadAdminSettings(true);
     alert("Admin settings save attempt sent to server! Changes will be reflected if successful.");
   }
 
@@ -510,11 +518,11 @@ const App: React.FC = () => {
         );
     } else if (currentTableDisplayDataLength > 0) {
         tableSectionContent = <div className="flex-grow"><MintsTable mints={currentTableDisplayData} /></div>;
-    } else { 
+    } else {
         tableSectionContent = (
             <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
                 <p className="text-slate-300">
-                {tableData.length === 0 
+                {tableData.length === 0
                     ? "No collections from the last 24 hours found (via API)."
                     : `No collections match the current "${tableFilter}" filter.`
                 }
@@ -550,7 +558,7 @@ const App: React.FC = () => {
             <p className="text-slate-300">{error || "Could not connect to the ApeChain network."}</p>
           </div>
         )}
-        {isLoading && initialAppSetupComplete && ( 
+        {isLoading && initialAppSetupComplete && (
           <div className="flex flex-col items-center justify-center text-center p-6 w-full max-w-4xl mx-auto mb-6">
             <LoadingSpinner />
             <p className="mt-4 text-lg text-slate-300">{providerOk ? "Connecting to ApeChain for live mints..." : "Initializing blockchain connection..."}</p>
@@ -606,7 +614,7 @@ const App: React.FC = () => {
               <section className="p-4 sm:p-6 bg-slate-800/70 rounded-xl shadow-2xl h-full border border-slate-700 backdrop-blur-sm flex flex-col">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
                   <h2 className="text-2xl sm:text-3xl font-semibold text-teal-400 mb-3 sm:mb-0">Unique Collections <span className="text-sm text-slate-400">(Last 24h, from API)</span></h2>
-                  {(tableFilter === 'free' || tableFilter === 'all') && providerOk && ( 
+                  {(tableFilter === 'free' || tableFilter === 'all') && providerOk && (
                       <button onClick={toggleSound} className={`px-3 py-2 text-xs sm:text-sm rounded-lg shadow-lg transition-colors ${soundEnabled ? 'bg-red-500 hover:bg-red-600' : 'bg-sky-500 hover:bg-sky-600'} text-white`}>
                           Sound Alerts: {soundEnabled ? 'ON' : 'OFF'}
                       </button>
@@ -680,21 +688,21 @@ const App: React.FC = () => {
                 />
             </Suspense>
           );
-      } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) { 
-          contentToRender = showInitializingAppMessage("Redirecting to Admin Panel..."); 
-      } else { 
+      } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
+          contentToRender = showInitializingAppMessage("Redirecting to Admin Panel...");
+      } else {
           contentToRender = renderMainContent();
       }
-  } else { 
+  } else {
       if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
           contentToRender = (
             <Suspense fallback={showInitializingAppMessage("Loading Admin Login...")}>
                 <AdminLogin onLoginSuccess={handleAdminLoginSuccess} />
             </Suspense>
           );
-      } else if (currentPageId === CONFIG_PANEL_PAGE_ID) { 
-          contentToRender = showInitializingAppMessage("Redirecting to Admin Login..."); 
-      } else { 
+      } else if (currentPageId === CONFIG_PANEL_PAGE_ID) {
+          contentToRender = showInitializingAppMessage("Redirecting to Admin Login...");
+      } else {
           contentToRender = renderMainContent();
       }
   }
@@ -702,14 +710,16 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-slate-100 flex flex-col items-center selection:bg-fuchsia-500 selection:text-white">
-      <header className="fixed top-0 left-0 right-0 z-[100] bg-slate-900/80 backdrop-blur-md flex justify-between items-center px-4 sm:px-6 py-3 shadow-lg" style={{height: '60px'}}> {/* Matches body padding-top */}
-          <div></div> {/* Spacer for justify-content: space-between */}
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-fuchsia-500 to-indigo-600 pb-1 drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
+      <header className="fixed top-0 left-0 right-0 z-[100] bg-slate-900/80 backdrop-blur-md flex justify-between items-center px-4 sm:px-6 py-3 shadow-lg w-full" style={{height: '60px'}}> {/* Added w-full for header */}
+          <div className="flex-1"></div> {/* Spacer for left side */}
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-fuchsia-500 to-indigo-600 pb-1 drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)] text-center flex-shrink-0"> {/* Added text-center and flex-shrink-0 */}
             {APP_TITLE}
           </h1>
-          <a href={`#/?${PAGE_QUERY_PARAM}=${CONFIG_LOGIN_PAGE_ID}`} className="text-xs sm:text-sm text-slate-300 hover:text-sky-400 transition-colors px-2 py-1 rounded hover:bg-slate-700/50">
-            Site Config
-          </a>
+          <div className="flex-1 flex justify-end"> {/* Spacer for right side, and ensures Site Config is to the right */}
+            <a href={`#/?${PAGE_QUERY_PARAM}=${CONFIG_LOGIN_PAGE_ID}`} className="text-xs sm:text-sm text-slate-300 hover:text-sky-400 transition-colors px-2 py-1 rounded hover:bg-slate-700/50">
+              Site Config
+            </a>
+          </div>
       </header>
       
       <div className="flex-grow w-full flex flex-col" style={{ paddingTop: '60px' }}> {/* This ensures content starts below fixed header */}

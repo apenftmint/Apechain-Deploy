@@ -24,7 +24,7 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
 
   return (
     <div 
-      className="overflow-x-auto rounded-lg shadow-2xl custom-scrollbar border border-slate-700 backdrop-blur-sm bg-slate-800/30 flex-grow" 
+      className="overflow-x-auto overflow-y-auto rounded-lg shadow-2xl custom-scrollbar border border-slate-700 backdrop-blur-sm bg-slate-800/30 flex-grow" 
       style={{ 
         minHeight: '550px', 
         maxHeight: 'calc(100vh - 320px)' 
@@ -48,8 +48,6 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
               return null; 
             }
             
-            // console.log(`[MintsTable Row ${index + 1}] Processing. Contract: ${mint.contractAddress}, TokenID: ${mint.tokenId}`); // Keep for debugging if needed
-            
             const explorerAddressUrl = `${APECHAIN_EXPLORER_URL}/address/${mint.contractAddress}`;
             const explorerTxUrl = `${APECHAIN_EXPLORER_URL}/tx/${mint.txHash}`;
             const magicEdenCollectionUrl = `${APECHAIN_MAGICKEDEN_COLLECTION_URL_PREFIX}${mint.contractAddress}`;
@@ -62,8 +60,8 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
 
             return (
               <tr key={rowKey} className="hover:bg-slate-700/70 transition-colors duration-150">
-                <td className="whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-slate-400 text-center">{index + 1}</td>
-                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400">{formatTimestampToDateTime(mint.timestamp)}</td>
+                <td className="whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-slate-200 text-center">{index + 1}</td>
+                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-300">{formatTimestampToDateTime(mint.timestamp)}</td>
                 <td className="px-3 py-3 text-xs sm:text-sm max-w-[150px] truncate" title={`${collectionDisplayName} (Rep. Token ID: ${mint.tokenId})`}>
                   {collectionDisplayName !== "Unnamed Collection" && collectionDisplayName !== "Unknown Collection" ? (
                     <span className="text-fuchsia-400 font-medium">{collectionDisplayName}</span>
@@ -74,7 +72,7 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
                 <td className={`whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-center font-semibold ${mint.isFree ? 'text-green-400' : 'text-amber-400'}`}>
                   {mint.isFree ? 'Free' : (mint.mintPriceApe ? `${mint.mintPriceApe} APE` : 'Paid')}
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400">
+                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-300">
                    <a 
                     href={explorerAddressUrl} 
                     target="_blank" 
