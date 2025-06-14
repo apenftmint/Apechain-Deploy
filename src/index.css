@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* Or, if specifically using @tailwindcss/vite as per the user's guide, it might be: */
+/* @import "tailwindcss"; */
+/* For standard Tailwind setup, the three imports above are correct. 
+   If @tailwindcss/vite uses a single import, adjust as needed.
+   Assuming standard setup for now. The user's doc said: @import "tailwindcss"; 
+   Let's use that one as per their Vite guide snippet.
+*/
+@import "tailwindcss";
