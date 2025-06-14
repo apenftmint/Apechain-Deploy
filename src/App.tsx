@@ -617,7 +617,7 @@ const App: React.FC = () => {
                         <p className="text-slate-300 text-sm mt-2">{tableDataError}</p>
                     </div>
                 )}
-                {!isFetchingTableData && !tableDataError && getFilteredAndPaginatedTableData().length > 0 && (
+                {!isFetchingTableData && getFilteredAndPaginatedTableData().length > 0 && (
                   <div className="flex-grow"><MintsTable mints={getFilteredAndPaginatedTableData()} /></div>
                 )}
                 {!isFetchingTableData && !tableDataError && getFilteredAndPaginatedTableData().length === 0 && (
