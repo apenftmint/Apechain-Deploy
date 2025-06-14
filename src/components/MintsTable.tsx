@@ -8,11 +8,9 @@ interface MintsTableProps {
 }
 
 const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
-  console.log("[MintsTable Component] Received 'mints' prop. Length:", mints.length);
+  console.log("[MintsTable Component] Rendering. Received 'mints' prop. Length:", mints.length);
   if (mints.length > 0) {
-    console.log("[MintsTable Component] First mint item in prop:", JSON.stringify(mints[0], null, 2));
-  } else {
-    console.log("[MintsTable Component] Received an empty 'mints' array.");
+    console.log("[MintsTable Component] First mint item in prop (simplified for brevity):", { txHash: mints[0].txHash, contractAddress: mints[0].contractAddress, collectionName: mints[0].collectionName });
   }
 
   const formatTimestampToDateTime = (timestamp: number): string => {
@@ -23,10 +21,10 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
 
   return (
     <div
-      className="overflow-x-auto rounded-lg shadow-2xl custom-scrollbar border border-slate-700 backdrop-blur-sm bg-slate-800/30 flex-grow"
+      className="overflow-x-auto overflow-y-auto rounded-lg shadow-2xl custom-scrollbar border border-slate-700 backdrop-blur-sm bg-slate-800/30 flex-grow"
       style={{
-        minHeight: '550px', // Adjusted to show ~10 items + header
-        maxHeight: 'calc(100vh - 280px)' // Keep a reasonable max height
+        minHeight: '550px',
+        maxHeight: 'calc(100vh - 280px)'
       }}
     >
       <table className="min-w-full divide-y divide-slate-700">
@@ -42,8 +40,6 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
         </thead>
         <tbody className="divide-y divide-slate-700">
           {mints.map((mint, index) => {
-            console.log(`[MintsTable Map Loop] Processing item ${index + 1}/${mints.length}: Contract ${mint.contractAddress}, TokenID ${mint.tokenId}`);
-            
             const explorerAddressUrl = `${APECHAIN_EXPLORER_URL}/address/${mint.contractAddress}`;
             const explorerTxUrl = `${APECHAIN_EXPLORER_URL}/tx/${mint.txHash}`;
             const magicEdenCollectionUrl = `${APECHAIN_MAGICKEDEN_COLLECTION_URL_PREFIX}${mint.contractAddress}`;
@@ -52,8 +48,8 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
                                         ? mint.analysis.collectionNameFromAnalyzer
                                         : mint.collectionName;
             
-            const rowKey = `${mint.txHash}-${mint.logIndex}-${mint.contractAddress}-${index}`; 
-            console.log(`[MintsTable Map Loop] Returning <tr> with key: ${rowKey}`);
+            const rowKey = `${mint.txHash}-${mint.logIndex}-${mint.contractAddress}-${index}`;
+             // console.log(`[MintsTable Map Loop] Returning <tr> with key: ${rowKey}`); // Optional: keep if further debugging needed
 
             return (
               <tr key={rowKey} className="hover:bg-slate-700/70 transition-colors duration-150">
@@ -70,10 +66,10 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
                   {mint.isFree ? 'Free' : (mint.mintPriceApe ? `${mint.mintPriceApe} APE` : 'Paid')}
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400">
-                   <a
-                    href={explorerAddressUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                   <a 
+                    href={explorerAddressUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
                     className="text-teal-400 hover:text-teal-300 hover:underline"
                     title={`View contract ${mint.contractAddress} on ApeChain Explorer`}
                   >
@@ -82,20 +78,20 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
                 </td>
                 <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-center">
                   <div className="flex items-center justify-center space-x-2 sm:space-x-3">
-                    <a
+                    <a 
                       href={explorerTxUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      target="_blank" 
+                      rel="noopener noreferrer" 
                       className="text-indigo-400 hover:text-indigo-300 hover:underline"
                       aria-label={`View mint transaction ${mint.txHash.substring(0,10)}... for representative token ${mint.tokenId} on ApeChain Explorer`}
                       title="View Transaction on Explorer"
                     >
                       Tx
                     </a>
-                    <a
+                    <a 
                       href={magicEdenCollectionUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      target="_blank" 
+                      rel="noopener noreferrer" 
                       className="text-emerald-400 hover:text-emerald-300 hover:underline"
                       aria-label={`View collection ${collectionDisplayName} on MagicEden`}
                       title="View Collection on MagicEden"
@@ -114,4 +110,3 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
 };
 
 export default MintsTable;
-

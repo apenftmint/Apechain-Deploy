@@ -1,6 +1,13 @@
-/// <reference types="node" />
-
 // Netlify Function: collections-manager.ts
+
+// Add Buffer type declaration to satisfy TypeScript compiler when @types/node is not available.
+// Buffer is a global in Node.js environments like Netlify Functions.
+declare var Buffer: {
+  from: (str: string, encoding?: string) => ({
+    toString: (encoding?: string) => string;
+  });
+};
+
 import type { Handler, HandlerEvent, HandlerContext } from "@netlify/functions";
 import { MintData, CollectionAnalysisResult, FinalCollectionStatus, TokenMetadata, MetadataStatus, NameSymbolStatus } from '../../src/types'; // Adjusted path assuming types.ts is in src
 import { APE_COIN_DECIMALS, ERC721_METADATA_ABI } from '../../src/constants'; // Adjusted path assuming constants.ts is in src

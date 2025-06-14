@@ -190,7 +190,7 @@ const App: React.FC = () => {
 
   const fetchUniqueCollectionsTableData = useCallback(async () => {
     setIsFetchingTableData(true);
-    setTableDataError(null);
+    setTableDataError(null); // Clear previous errors
     console.log("fetchUniqueCollectionsTableData: Starting (API)...");
     try {
         const response = await fetch(UNIQUE_COLLECTIONS_API_ENDPOINT);
@@ -217,8 +217,6 @@ const App: React.FC = () => {
 
     const loadAllInitialData = async () => {
         console.log("loadAllInitialData: Starting all initial fetches.");
-        // Individual loading flags are set by their respective functions.
-        // `Promise.allSettled` ensures all complete before proceeding.
         await Promise.allSettled([
             loadAdminSettings(),
             loadSeenPopups(),
@@ -442,7 +440,7 @@ const App: React.FC = () => {
     if (!newSoundEnabled && speechSynthesis.speaking) speechSynthesis.cancel();
   };
 
-  const getFilteredAndPaginatedTableData = () => {
+  const getFilteredAndPaginatedTableData = useCallback(() => {
     let filteredData = tableData;
     if (tableFilter === 'free') {
         filteredData = tableData.filter(mint => mint.isFree);
@@ -451,7 +449,8 @@ const App: React.FC = () => {
     }
     const paginatedData = filteredData.slice(0, tableItemsPerPage);
     return paginatedData;
-  };
+  }, [tableData, tableFilter, tableItemsPerPage]);
+
 
   const handleAdminLoginSuccess = () => {
     setIsAdminLoggedIn(true);
@@ -472,7 +471,43 @@ const App: React.FC = () => {
   const visibleAds = effectiveAds.filter(ad => ad.active);
 
 
-  const renderMainContent = () => (
+  const renderMainContent = () => {
+    const currentTableDisplayData = getFilteredAndPaginatedTableData();
+    const currentTableDisplayDataLength = currentTableDisplayData.length;
+
+    console.log(`[App Render MainContent] Conditions: isFetchingTableData=${isFetchingTableData}, tableDataError=${!!tableDataError}, currentTableDisplayDataLength=${currentTableDisplayDataLength}, tableData.length=${tableData.length}, initialAppSetupComplete=${initialAppSetupComplete}`);
+
+    let tableSectionContent;
+    if (isFetchingTableData && (!initialAppSetupComplete || currentTableDisplayDataLength === 0)) {
+        tableSectionContent = (
+            <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
+                <LoadingSpinner />
+                <p className="mt-3">
+                    {initialAppSetupComplete ? "Refreshing collections data..." : "Loading unique collections..."}
+                </p>
+            </div>
+        );
+    } else if (tableDataError) {
+        tableSectionContent = (
+            <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow bg-red-900/30 border border-red-700 rounded-md p-4">
+                <p className="text-red-300 font-semibold text-lg">Failed to Load Collections</p>
+                <p className="text-slate-300 text-sm mt-2">{tableDataError}</p>
+            </div>
+        );
+    } else if (currentTableDisplayDataLength > 0) {
+        tableSectionContent = <div className="flex-grow"><MintsTable mints={currentTableDisplayData} /></div>;
+    } else { // Not fetching, no error, but no displayable data
+        tableSectionContent = (
+            <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
+                {tableData.length === 0 
+                    ? <p>No collections from the last 24 hours found (via API).</p>
+                    : <p>No collections match the current "{tableFilter}" filter.</p>
+                }
+            </div>
+        );
+    }
+
+    return (
     <>
       { adminSettingsError && (
           <div className="w-full max-w-4xl mx-auto text-center p-3 bg-red-800/60 rounded-lg shadow-lg border border-red-600 my-2 backdrop-blur-sm text-sm">
@@ -523,7 +558,7 @@ const App: React.FC = () => {
             <p className="text-slate-300">No live mints detected yet.</p>
           </div>
         )}
-        { !isLoading && (
+        { !isLoading && ( // Show live feeds even if table is still loading its initial data
           <div className="w-full max-w-8xl mx-auto flex flex-col md:flex-row md:space-x-6 lg:space-x-8 mt-4">
             <div className="w-full md:w-2/5 lg:w-1/3 flex flex-col space-y-8 mb-8 md:mb-0">
               <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
@@ -576,28 +611,7 @@ const App: React.FC = () => {
                         ))}
                     </div>
                 </div>
-                {isFetchingTableData && initialAppSetupComplete && ( 
-                    <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                        <LoadingSpinner /><p className="mt-3">Refreshing collections data...</p>
-                    </div>
-                )}
-                {!isFetchingTableData && tableDataError && (
-                    <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow bg-red-900/30 border border-red-700 rounded-md p-4">
-                        <p className="text-red-300 font-semibold text-lg">Failed to Load Collections</p>
-                        <p className="text-slate-300 text-sm mt-2">{tableDataError}</p>
-                    </div>
-                )}
-                {!isFetchingTableData && !tableDataError && getFilteredAndPaginatedTableData().length > 0 && (
-                  <div className="flex-grow"><MintsTable mints={getFilteredAndPaginatedTableData()} /></div>
-                )}
-                {!isFetchingTableData && !tableDataError && getFilteredAndPaginatedTableData().length === 0 && (
-                  <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                    {tableData.length === 0 && !isFetchingTableData 
-                        ? <p>No collections from the last 24 hours found (via API).</p>
-                        : <p>No collections match the current "{tableFilter}" filter.</p>
-                    }
-                  </div>
-                )}
+                {tableSectionContent}
               </section>
             </div>
           </div>
@@ -610,7 +624,8 @@ const App: React.FC = () => {
         </div>
       </footer>
     </>
-  );
+    );
+  };
 
   const currentPageId = getPageFromHash(currentRoute);
   let contentToRender;
@@ -625,9 +640,9 @@ const App: React.FC = () => {
 
   if (!initialAppSetupComplete) {
     let loadingMessage = "Initializing ApeChain Mint Tracker...";
-    if (isAdminSettingsLoading) loadingMessage = "Loading site configuration...";
-    else if (isSeenPopupsLoading) loadingMessage = "Loading popup history...";
-    else if (isFetchingTableData) loadingMessage = "Loading unique collections...";
+    if (isAdminSettingsLoading && !isSeenPopupsLoading && !isFetchingTableData && !isLoading) loadingMessage = "Loading site configuration...";
+    else if (isSeenPopupsLoading && !isFetchingTableData && !isLoading) loadingMessage = "Loading popup history...";
+    else if (isFetchingTableData && !isLoading ) loadingMessage = "Loading unique collections...";
     else if (isLoading) loadingMessage = "Initializing blockchain connection...";
     contentToRender = showInitializingAppMessage(loadingMessage);
   } else if (isAdminLoggedIn) {
