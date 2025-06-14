@@ -68,7 +68,7 @@ const App: React.FC = () => {
   const [livePaidMints, setLivePaidMints] = useState<MintData[]>([]);
   const [allTimeMints, setAllTimeMints] = useState<MintData[]>([]); // Still used for localStorage backup
 
-  const [isLoading, setIsLoading] = useState<boolean>(true); // For blockchain service connection
+  const [isLoadingBlockchain, setIsLoadingBlockchain] = useState<boolean>(true); // For blockchain service connection
   const [error, setError] = useState<string | null>(null);
   const [rateLimitWarning, setRateLimitWarning] = useState<string | null>(null);
   const [providerOk, setProviderOk] = useState<boolean>(false);
@@ -84,13 +84,13 @@ const App: React.FC = () => {
 
   const [activePopups, setActivePopups] = useState<PopupMintData[]>([]);
 
-  const isInitialLoadRef = useRef(true);
+  const isInitialLoadRef = useRef(true); // For popup logic to distinguish true initial load vs subsequent data changes
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const speechTimeoutRef = useRef<number | null>(null);
   const playedNotificationForContractsRef = useRef(new Set<string>());
 
   const [currentRoute, setCurrentRoute] = useState<string>(window.location.hash || '#/');
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false); // Initialize to false, session-only
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
 
   const [effectiveTwitterId, setEffectiveTwitterId] = useState<string>(DEFAULT_ADVERTISEMENT_TWITTER_USER_ID);
   const [effectiveAds, setEffectiveAds] = useState<NftAdDetails[]>(DEFAULT_NFT_ADVERTISEMENTS_LIST);
@@ -156,8 +156,8 @@ const App: React.FC = () => {
         setEffectiveTwitterId(DEFAULT_ADVERTISEMENT_TWITTER_USER_ID);
         setEffectiveAds(DEFAULT_NFT_ADVERTISEMENTS_LIST);
     } finally {
-        if (!isRefresh) setIsAdminSettingsLoading(false);
-        console.log("loadAdminSettings finished. isAdminSettingsLoading (if not refresh):", isRefresh ? "N/A (refresh)" : false);
+        setIsAdminSettingsLoading(false); // Always set to false after attempt
+        console.log("loadAdminSettings finished. isAdminSettingsLoading:", false);
     }
   }, []);
 
@@ -183,7 +183,7 @@ const App: React.FC = () => {
         setSeenPopupsError(`Could not load popup history: ${e.message}. Popups may re-appear.`);
         playedNotificationForContractsRef.current = new Set<string>();
     } finally {
-        setIsSeenPopupsLoading(false);
+        setIsSeenPopupsLoading(false); // Always set to false
         console.log("loadSeenPopups finished. isSeenPopupsLoading:", false);
     }
   }, []);
@@ -200,37 +200,26 @@ const App: React.FC = () => {
         }
         const data: AppTableDisplayMintData[] = await response.json();
         console.log(`fetchUniqueCollectionsTableData: Received ${data.length} collections from API.`);
-        if (data.length > 0) {
-            // console.log("First collection item from API:", JSON.stringify(data[0], null, 2)); // Keep this if needed for deep debug
-        }
         setTableData(data.sort((a,b) => b.timestamp - a.timestamp));
     } catch (e: any) {
         console.error("Failed to fetch unique collections table data (from API endpoint):", e);
         setTableDataError(`Error loading collections: ${e.message}. Please try refreshing.`);
         setTableData([]);
     } finally {
-        setIsFetchingTableData(false);
+        setIsFetchingTableData(false); // Always set to false
         console.log("fetchUniqueCollectionsTableData (API) finished. isFetchingTableData:", false);
     }
   }, []);
 
+  // Effect for all initial data loading
   useEffect(() => {
     const initialHash = window.location.hash || '#/';
     setCurrentRoute(initialHash);
-
-    const loadAllInitialData = async () => {
-        console.log("loadAllInitialData: Starting all initial fetches.");
-        await Promise.allSettled([
-            loadAdminSettings(),
-            loadSeenPopups(),
-            fetchUniqueCollectionsTableData()
-        ]);
-        console.log("loadAllInitialData: All initial fetches settled.");
-        setInitialAppSetupComplete(true);
-        console.log("loadAllInitialData: initialAppSetupComplete SET TO TRUE.");
-    };
-
-    loadAllInitialData();
+    
+    console.log("Initial data loading effect: Kicking off all fetches.");
+    loadAdminSettings();
+    loadSeenPopups();
+    fetchUniqueCollectionsTableData();
 
     const handleHashChange = () => {
       setCurrentRoute(window.location.hash || '#/');
@@ -241,17 +230,28 @@ const App: React.FC = () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []); // Empty dependency array: Run only on mount
+
+  // Effect to determine when all initial setup is truly complete
+  useEffect(() => {
+    if (!isAdminSettingsLoading && !isSeenPopupsLoading && !isFetchingTableData && !isLoadingBlockchain) {
+        if (!initialAppSetupComplete) {
+            console.log("All critical initial loads complete. Setting initialAppSetupComplete to true.");
+            setInitialAppSetupComplete(true);
+        }
+    }
+  }, [isAdminSettingsLoading, isSeenPopupsLoading, isFetchingTableData, isLoadingBlockchain, initialAppSetupComplete]);
+
 
   useEffect(() => {
     document.body.style.paddingTop = `${calculateBodyPaddingTop(effectiveTwitterId, effectiveAds)}px`;
   }, [effectiveAds, effectiveTwitterId]);
 
-  useEffect(() => {
+  useEffect(() => { // Handle admin page redirects based on login state
     const pageId = getPageFromHash(currentRoute);
     let newHashTarget: string | null = null;
 
-    if (initialAppSetupComplete) {
+    if (initialAppSetupComplete) { // Only attempt redirects after initial setup is done
         if (pageId === CONFIG_LOGIN_PAGE_ID && isAdminLoggedIn) {
             newHashTarget = `#/?${PAGE_QUERY_PARAM}=${CONFIG_PANEL_PAGE_ID}`;
         } else if (pageId === CONFIG_PANEL_PAGE_ID && !isAdminLoggedIn) {
@@ -330,7 +330,6 @@ const App: React.FC = () => {
       return updatedPersistedMints;
     });
 
-    // POST new mint to backend, then refresh table data from backend
     try {
         const response = await fetch(UNIQUE_COLLECTIONS_API_ENDPOINT, {
             method: 'POST',
@@ -343,7 +342,7 @@ const App: React.FC = () => {
         } else {
             const responseData = await response.json();
             console.log(`Successfully POSTed new mint ${newMint.txHash} to collections API. Server response: ${responseData.message}`);
-            fetchUniqueCollectionsTableData(); // Refresh table data from API after POST
+            fetchUniqueCollectionsTableData(); 
         }
     } catch (e) {
         console.error("Error POSTing new mint to collections API:", e);
@@ -351,19 +350,19 @@ const App: React.FC = () => {
     setError(null);
   }, [fetchUniqueCollectionsTableData]);
 
-  const handleSetupComplete = useCallback(() => {
-    setIsLoading(false); // Blockchain service connected
+  const handleSetupCompleteBlockchain = useCallback(() => {
+    setIsLoadingBlockchain(false); 
   }, []);
 
   useEffect(() => { // Blockchain service listener setup
     const initService = async () => {
-      setIsLoading(true); setError(null); setRateLimitWarning(null);
+      setIsLoadingBlockchain(true); setError(null); setRateLimitWarning(null);
       try {
         setProviderOk(true);
-        await blockchainService.listenForMints(handleNewMint, handleError, handleSetupComplete);
+        await blockchainService.listenForMints(handleNewMint, handleError, handleSetupCompleteBlockchain);
       } catch (e) {
         handleError(`Initialization Error: ${e instanceof Error ? e.message : String(e)}`);
-        setProviderOk(false); setIsLoading(false);
+        setProviderOk(false); setIsLoadingBlockchain(false);
       }
     };
     initService();
@@ -372,15 +371,15 @@ const App: React.FC = () => {
       if (speechSynthesis.speaking) speechSynthesis.cancel();
       if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
     };
-  }, [handleNewMint, handleError, handleSetupComplete]);
+  }, [handleNewMint, handleError, handleSetupCompleteBlockchain]);
 
  useEffect(() => { // Popup and sound notification logic
-    if (isInitialLoadRef.current && initialAppSetupComplete && !isLoading && !isFetchingTableData && !isAdminSettingsLoading && !isSeenPopupsLoading) {
-      isInitialLoadRef.current = false; // Initial setup is complete
-      console.log("Popup useEffect: Initial app setup is now considered fully complete for popups.");
+    if (isInitialLoadRef.current && initialAppSetupComplete) {
+      isInitialLoadRef.current = false; 
+      console.log("Popup useEffect: Initial app setup is now considered fully complete for popups (isInitialLoadRef=false).");
     }
 
-    if (isInitialLoadRef.current || !initialAppSetupComplete || isSeenPopupsLoading || isAdminSettingsLoading || isFetchingTableData || isLoading) {
+    if (isInitialLoadRef.current || !initialAppSetupComplete ) { // Simplified: if initial setup not complete OR it's still the "first pass" for popups
         if (!userInteracted && speechSynthesis.speaking) speechSynthesis.cancel();
         if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
         return;
@@ -423,7 +422,7 @@ const App: React.FC = () => {
         }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tableData, userInteracted, soundEnabled, tableFilter, initialAppSetupComplete, isSeenPopupsLoading, isAdminSettingsLoading, isFetchingTableData, isLoading]);
+  }, [tableData, userInteracted, soundEnabled, tableFilter, initialAppSetupComplete]);
 
   const handlePopupClose = (popupId: string) => setActivePopups(prev => prev.filter(p => p.popupId !== popupId));
 
@@ -450,9 +449,6 @@ const App: React.FC = () => {
         filteredData = tableData.filter(mint => !mint.isFree);
     }
     const paginatedData = filteredData.slice(0, tableItemsPerPage);
-    if (paginatedData.length > 0 && tableData.length > 0) {
-        // console.log("[getFilteredAndPaginatedTableData] First item of paginated data:", JSON.stringify(paginatedData[0], null, 2));
-    }
     return paginatedData;
   }, [tableData, tableFilter, tableItemsPerPage]);
 
@@ -465,7 +461,7 @@ const App: React.FC = () => {
   };
 
   const handleAdminSettingsSave = () => {
-    loadAdminSettings(true);
+    loadAdminSettings(true); // Reload settings from backend after save attempt
     alert("Admin settings save attempt sent to server! Changes will be reflected if successful.");
   }
 
@@ -478,25 +474,49 @@ const App: React.FC = () => {
   const renderMainContent = () => {
     const processedTableDataForDisplay = getFilteredAndPaginatedTableData();
 
+    // This specific loading UI shows only if initial setup is complete, but table is still fetching (e.g., refresh)
+    const tableLoadingIndicator = (
+        <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
+            <LoadingSpinner /><p className="mt-3">Refreshing collections data...</p>
+        </div>
+    );
+
+    const tableErrorIndicator = (
+        <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow bg-red-900/30 border border-red-700 rounded-md p-4">
+            <p className="text-red-300 font-semibold text-lg">Failed to Load Collections</p>
+            <p className="text-slate-300 text-sm mt-2">{tableDataError}</p>
+        </div>
+    );
+    
+    const tableNoDataIndicator = (
+        <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
+            {tableData.length === 0 && !tableDataError
+                ? <p>No collections from the last 24 hours found (via API).</p>
+                : <p>No collections match the current "{tableFilter}" filter.</p>
+            }
+        </div>
+    );
+
     return (
       <>
-        { (isAdminSettingsLoading && !initialAppSetupComplete) && (
-          <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-[200]">
+        {/* These general loading/error states for settings/popups are shown on top of everything if they occur */}
+        { isAdminSettingsLoading && !initialAppSetupComplete && ( /* Only show if initialAppSetup is false */
+          <div className="fixed inset-0 bg-slate-900/80 flex items-center justify-center z-[200]">
               <LoadingSpinner /><p className="ml-3 text-slate-300">Loading site configuration...</p>
           </div>
         )}
-        { adminSettingsError && (
-            <div className="w-full max-w-4xl mx-auto text-center p-3 bg-red-800/60 rounded-lg shadow-lg border border-red-600 my-2 backdrop-blur-sm text-sm">
+        { adminSettingsError && ( /* Show error anytime */
+            <div className="w-full max-w-4xl mx-auto text-center p-3 bg-red-800/60 rounded-lg shadow-lg border border-red-600 my-2 backdrop-blur-sm text-sm z-[195] relative">
                 <p className="text-slate-200">{adminSettingsError}</p>
             </div>
         )}
-         { (isSeenPopupsLoading && !initialAppSetupComplete) && (
-          <div className="fixed inset-x-0 top-1/2 transform -translate-y-1/2 bg-slate-900/50 flex items-center justify-center z-[190] p-2 text-sm">
+         { isSeenPopupsLoading && !initialAppSetupComplete && ( /* Only show if initialAppSetup is false */
+          <div className="fixed inset-x-0 top-1/2 transform -translate-y-1/2 bg-slate-900/80 flex items-center justify-center z-[190] p-2 text-sm">
               <LoadingSpinner /><p className="ml-2 text-slate-300">Loading popup history...</p>
           </div>
         )}
-        { seenPopupsError && (
-            <div className="w-full max-w-4xl mx-auto text-center p-2 bg-yellow-800/60 rounded-lg shadow-lg border border-yellow-600 my-1 backdrop-blur-sm text-xs">
+        { seenPopupsError && ( /* Show error anytime */
+            <div className="w-full max-w-4xl mx-auto text-center p-2 bg-yellow-800/60 rounded-lg shadow-lg border border-yellow-600 my-1 backdrop-blur-sm text-xs z-[185] relative">
                 <p className="text-slate-200">{seenPopupsError}</p>
             </div>
         )}
@@ -509,64 +529,71 @@ const App: React.FC = () => {
         ))}
 
         <main className="w-full p-4 md:p-8 flex-grow">
-          {!providerOk && !isLoading && (
+          {!providerOk && !isLoadingBlockchain && (
             <div className="w-full max-w-4xl mx-auto text-center p-6 bg-red-800/50 rounded-xl shadow-2xl border border-red-600 mb-6 backdrop-blur-sm">
               <h2 className="text-2xl font-semibold text-red-300 mb-3">Connection Error</h2>
               <p className="text-slate-300">{error || "Could not connect to the ApeChain network."}</p>
             </div>
           )}
-          {isLoading && ( // This isLoading is for the blockchainService connection
+          {/* isLoadingBlockchain is for the live mints service, not the table data API */ }
+          {isLoadingBlockchain && ( 
             <div className="flex flex-col items-center justify-center text-center p-6 w-full max-w-4xl mx-auto mb-6">
               <LoadingSpinner />
               <p className="mt-4 text-lg text-slate-300">{providerOk ? "Connecting to ApeChain for live mints..." : "Initializing blockchain connection..."}</p>
             </div>
           )}
-          {!isLoading && error && (
+          {!isLoadingBlockchain && error && (
             <div className="w-full max-w-4xl mx-auto text-center p-6 bg-red-800/50 rounded-xl shadow-2xl border border-red-600 mb-6 backdrop-blur-sm">
               <h2 className="text-2xl font-semibold text-red-300 mb-3">Error Listening for Mints</h2>
               <p className="text-slate-300">{error}</p>
             </div>
           )}
-          {!isLoading && rateLimitWarning && !error && (
+          {!isLoadingBlockchain && rateLimitWarning && !error && (
             <div className="w-full max-w-4xl mx-auto text-center p-4 bg-yellow-700/40 rounded-xl shadow-2xl border border-yellow-500 mb-6 backdrop-blur-sm">
               <h2 className="text-xl font-semibold text-yellow-300 mb-2">Live Mint Network Status</h2>
               <p className="text-slate-300 text-sm">{rateLimitWarning}</p>
             </div>
           )}
-          {!isLoading && !error && !rateLimitWarning && displayedLiveFreeMints.length === 0 && displayedLivePaidMints.length === 0 && providerOk && (
+          {!isLoadingBlockchain && !error && !rateLimitWarning && displayedLiveFreeMints.length === 0 && displayedLivePaidMints.length === 0 && providerOk && (
             <div className="w-full max-w-4xl mx-auto text-center p-6 bg-slate-800/70 rounded-xl shadow-2xl mb-6 border border-slate-700 backdrop-blur-sm">
               <h2 className="text-2xl font-semibold text-sky-400 mb-3">Listening for Live Mints</h2>
               <p className="text-slate-300">No live mints detected yet.</p>
             </div>
           )}
-          { !isLoading && ( // Only render main content layout if blockchain service is not in its initial loading state
+          { /* Main content layout for live feeds and unique collections table */ }
             <div className="w-full max-w-8xl mx-auto flex flex-col md:flex-row md:space-x-6 lg:space-x-8 mt-4">
+              {/* Live Feeds Column */}
               <div className="w-full md:w-2/5 lg:w-1/3 flex flex-col space-y-8 mb-8 md:mb-0">
-                <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
-                  <h2 className="text-3xl font-semibold text-center md:text-left text-green-400 mb-4 drop-shadow-[0_1px_1px_rgba(0,255,0,0.3)]">
-                    Live Free Mints <span className="text-sm text-slate-400">(Latest {MAX_DISPLAY_MINTS_FOR_LIVE_FEED})</span>
-                  </h2>
-                  {displayedLiveFreeMints.length > 0 ? (
-                    <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar" style={{maxHeight: 'calc(70vh - 120px)'}}>
-                      {displayedLiveFreeMints.map((mint) => <MintCard key={`${mint.txHash}-${mint.logIndex}-free`} mint={mint} />)}
-                    </div>
-                  ) : providerOk && !error && (
-                    <div className="p-6 h-40 flex items-center justify-center border border-slate-700 rounded-xl"> <p className="text-slate-400 text-sm">Listening for free mints...</p> </div>
-                  )}
-                </div>
-                <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
-                  <h2 className="text-3xl font-semibold text-center md:text-left text-amber-400 mb-4 drop-shadow-[0_1px_1px_rgba(255,193,7,0.3)]">
-                    Live Paid Mints <span className="text-sm text-slate-400">(Latest {MAX_DISPLAY_MINTS_FOR_LIVE_FEED})</span>
-                  </h2>
-                  {displayedLivePaidMints.length > 0 ? (
-                    <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar" style={{maxHeight: 'calc(70vh - 120px)'}}>
-                      {displayedLivePaidMints.map((mint) => <MintCard key={`${mint.txHash}-${mint.logIndex}-paid`} mint={mint} />)}
-                    </div>
-                  ) : providerOk && !error && (
-                    <div className="p-6 h-40 flex items-center justify-center border border-slate-700 rounded-xl"> <p className="text-slate-400 text-sm">Listening for paid mints...</p> </div>
-                  )}
-                </div>
+                {!isLoadingBlockchain && /* Show live feeds only if blockchain service isn't loading */ (
+                  <>
+                  <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
+                    <h2 className="text-3xl font-semibold text-center md:text-left text-green-400 mb-4 drop-shadow-[0_1px_1px_rgba(0,255,0,0.3)]">
+                      Live Free Mints <span className="text-sm text-slate-400">(Latest {MAX_DISPLAY_MINTS_FOR_LIVE_FEED})</span>
+                    </h2>
+                    {displayedLiveFreeMints.length > 0 ? (
+                      <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar" style={{maxHeight: 'calc(70vh - 120px)'}}>
+                        {displayedLiveFreeMints.map((mint) => <MintCard key={`${mint.txHash}-${mint.logIndex}-free`} mint={mint} />)}
+                      </div>
+                    ) : providerOk && !error && (
+                      <div className="p-6 h-40 flex items-center justify-center border border-slate-700 rounded-xl"> <p className="text-slate-400 text-sm">Listening for free mints...</p> </div>
+                    )}
+                  </div>
+                  <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
+                    <h2 className="text-3xl font-semibold text-center md:text-left text-amber-400 mb-4 drop-shadow-[0_1px_1px_rgba(255,193,7,0.3)]">
+                      Live Paid Mints <span className="text-sm text-slate-400">(Latest {MAX_DISPLAY_MINTS_FOR_LIVE_FEED})</span>
+                    </h2>
+                    {displayedLivePaidMints.length > 0 ? (
+                      <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar" style={{maxHeight: 'calc(70vh - 120px)'}}>
+                        {displayedLivePaidMints.map((mint) => <MintCard key={`${mint.txHash}-${mint.logIndex}-paid`} mint={mint} />)}
+                      </div>
+                    ) : providerOk && !error && (
+                      <div className="p-6 h-40 flex items-center justify-center border border-slate-700 rounded-xl"> <p className="text-slate-400 text-sm">Listening for paid mints...</p> </div>
+                    )}
+                  </div>
+                  </>
+                )}
               </div>
+              {/* Unique Collections Table Column */}
               <div className="w-full md:w-3/5 lg:w-2/3">
                 <section className="p-4 sm:p-6 bg-slate-800/70 rounded-xl shadow-2xl h-full border border-slate-700 backdrop-blur-sm flex flex-col">
                   <div className="flex flex-col sm:flex-row justify-between items-start mb-4">
@@ -592,37 +619,15 @@ const App: React.FC = () => {
                           ))}
                       </div>
                   </div>
-                  {isFetchingTableData && !initialAppSetupComplete && ( // Show initial loading for table
-                      <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                          <LoadingSpinner /><p className="mt-3">Loading unique collections from API...</p>
-                      </div>
-                  )}
-                   {isFetchingTableData && initialAppSetupComplete && ( // Show refresh loading for table
-                      <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                          <LoadingSpinner /><p className="mt-3">Refreshing collections data...</p>
-                      </div>
-                  )}
-                  {!isFetchingTableData && tableDataError && (
-                      <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow bg-red-900/30 border border-red-700 rounded-md p-4">
-                          <p className="text-red-300 font-semibold text-lg">Failed to Load Collections</p>
-                          <p className="text-slate-300 text-sm mt-2">{tableDataError}</p>
-                      </div>
-                  )}
-                  {!isFetchingTableData && !tableDataError && processedTableDataForDisplay.length > 0 && (
-                    <div className="flex-grow"><MintsTable mints={processedTableDataForDisplay} /></div>
-                  )}
-                  {!isFetchingTableData && !tableDataError && processedTableDataForDisplay.length === 0 && (
-                    <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                      {tableData.length === 0
-                          ? <p>No collections from the last 24 hours found (via API). This could be due to an API error, no recent data, or all data being older than 24 hours.</p>
-                          : <p>No collections match the current "{tableFilter}" filter from the available data ({tableData.length} total from API).</p>
-                      }
-                    </div>
-                  )}
+                  
+                  {isFetchingTableData ? tableLoadingIndicator : 
+                   tableDataError ? tableErrorIndicator : 
+                   processedTableDataForDisplay.length > 0 ? <div className="flex-grow"><MintsTable mints={processedTableDataForDisplay} /></div> :
+                   tableNoDataIndicator
+                  }
                 </section>
               </div>
             </div>
-          )}
         </main>
         <footer className="mt-auto text-center text-slate-500 text-xs w-full max-w-7xl mx-auto py-6 border-t border-slate-700/50">
           <div className="flex justify-between items-center px-4 sm:px-0">
@@ -644,12 +649,9 @@ const App: React.FC = () => {
     </div>
   );
 
-  if (!initialAppSetupComplete && (currentPageId === CONFIG_LOGIN_PAGE_ID || currentPageId === CONFIG_PANEL_PAGE_ID)) {
-    contentToRender = showRedirectingMessage("Initializing site configuration...");
-  } else if (!initialAppSetupComplete && !currentPageId) {
+  if (!initialAppSetupComplete && !(currentPageId === CONFIG_LOGIN_PAGE_ID || currentPageId === CONFIG_PANEL_PAGE_ID)) {
     contentToRender = showRedirectingMessage("Initializing ApeChain Mint Tracker...");
-  }
-  else if (isAdminLoggedIn) {
+  } else if (isAdminLoggedIn) {
       if (currentPageId === CONFIG_PANEL_PAGE_ID) {
           contentToRender = (
             <Suspense fallback={showRedirectingMessage("Loading Admin Panel...")}>
@@ -692,10 +694,7 @@ const App: React.FC = () => {
             Site Config
           </a>
       </header>
-      { (initialAppSetupComplete || currentPageId === CONFIG_LOGIN_PAGE_ID || currentPageId === CONFIG_PANEL_PAGE_ID)
-        ? contentToRender
-        : showRedirectingMessage("Initializing ApeChain Mint Tracker...")
-      }
+      {contentToRender}
     </div>
   );
 };
