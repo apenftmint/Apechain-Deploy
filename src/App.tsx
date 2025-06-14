@@ -447,19 +447,19 @@ const App: React.FC = () => {
   };
 
   const getFilteredAndPaginatedTableData = () => {
-    console.log("[getFilteredAndPaginatedTableData] Called. tableData length:", tableData.length, "Current filter:", tableFilter, "Items per page:", tableItemsPerPage);
+    // console.log("[getFilteredAndPaginatedTableData] Called. tableData length:", tableData.length, "Current filter:", tableFilter, "Items per page:", tableItemsPerPage);
     let filteredData = tableData;
     if (tableFilter === 'free') {
         filteredData = tableData.filter(mint => mint.isFree);
-        console.log("[getFilteredAndPaginatedTableData] After 'free' filter, length:", filteredData.length);
+        // console.log("[getFilteredAndPaginatedTableData] After 'free' filter, length:", filteredData.length);
     } else if (tableFilter === 'paid') {
         filteredData = tableData.filter(mint => !mint.isFree);
-        console.log("[getFilteredAndPaginatedTableData] After 'paid' filter, length:", filteredData.length);
+        // console.log("[getFilteredAndPaginatedTableData] After 'paid' filter, length:", filteredData.length);
     }
     const paginatedData = filteredData.slice(0, tableItemsPerPage);
-    console.log("[getFilteredAndPaginatedTableData] After pagination, returning length:", paginatedData.length);
-    if (paginatedData.length > 0 && tableData.length > 0) { // Also check tableData to avoid error on empty
-        // console.log("[getFilteredAndPaginatedTableData] First item of paginated data:", JSON.stringify(paginatedData[0], null, 2));
+    // console.log("[getFilteredAndPaginatedTableData] After pagination, returning length:", paginatedData.length);
+    if (paginatedData.length > 0 && tableData.length > 0) { // Check tableData.length to prevent error on initial empty
+        console.log("[getFilteredAndPaginatedTableData] First item of paginated data:", JSON.stringify(paginatedData[0], null, 2));
     }
     return paginatedData;
   };
