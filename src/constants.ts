@@ -64,7 +64,7 @@ export const LOCAL_STORAGE_KEY = 'apechainNftMintTrackerData_v4';
 export const LIVE_FREE_MINTS_CACHE_KEY = 'apechainLiveFreeMintsCache_v1';
 export const LIVE_PAID_MINTS_CACHE_KEY = 'apechainLivePaidMintsCache_v1';
 export const ANALYSIS_RESULTS_CACHE_KEY = 'apechainAnalysisCache_v4'; 
-export const TABLE_DATA_CACHE_KEY = 'apechainTableDataCache_v5'; 
+// export const TABLE_DATA_CACHE_KEY = 'apechainTableDataCache_v5'; // No longer caching table data this way
 export const SOUND_ENABLED_PREFERENCE_KEY = 'apechainSoundEnabledPreference_v3';
 export const ADMIN_SESSION_KEY = 'apechainAdminSession_v1';
 
@@ -178,23 +178,22 @@ export const INITIAL_TABLE_COLLECTIONS_TO_PROCESS = 30;
 export const ANALYSIS_CACHE_DURATION_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 // --- Admin Settings ---
-// WARNING: Storing plaintext credentials in client-side code is highly insecure. 
-// This is for demonstration or specific local testing purposes ONLY.
-// In a real application, use a secure backend for authentication and data storage.
 export const ADMIN_USERNAME = "admin";
-export const ADMIN_PASSWORD = "admin@123"; // Plaintext password. DO NOT USE THIS IN PRODUCTION.
+export const ADMIN_PASSWORD = "admin@123"; 
 
-export const MAX_ADMIN_EDITABLE_ADS = 5; // How many ad slots the admin can manage
+export const MAX_ADMIN_EDITABLE_ADS = 5; 
 
 // Configuration Page Routing (using query parameters in hash)
 export const PAGE_QUERY_PARAM = 'page';
 export const CONFIG_LOGIN_PAGE_ID = 'config_login';
 export const CONFIG_PANEL_PAGE_ID = 'config_panel';
 
-// --- API Endpoints (Netlify Functions) ---
-export const API_BASE_URL = '/.netlify/functions'; 
-export const SETTINGS_API_ENDPOINT = `${API_BASE_URL}/settings`;
-export const SEEN_POPUPS_API_ENDPOINT = `${API_BASE_URL}/seen-popups`;
-export const MARK_POPUP_SEEN_API_ENDPOINT = `${API_BASE_URL}/mark-popup-seen`;
-export const UNIQUE_COLLECTIONS_API_ENDPOINT = `${API_BASE_URL}/collections-manager`; // Backend endpoint for fetching/updating collections data
-    
+// GitHub Raw Content URL for vaa.json
+export const GITHUB_VAA_JSON_URL = 'https://raw.githubusercontent.com/apenftmint/data/main/vaa.json';
+
+// API Endpoints for Netlify Functions (Now disabled)
+// export const API_BASE_URL = '/.netlify/functions'; 
+// export const SETTINGS_API_ENDPOINT = `${API_BASE_URL}/settings`;
+// export const SEEN_POPUPS_API_ENDPOINT = `${API_BASE_URL}/seen-popups`;
+// export const MARK_POPUP_SEEN_API_ENDPOINT = `${API_BASE_URL}/mark-popup-seen`;
+// export const UNIQUE_COLLECTIONS_API_ENDPOINT = `${API_BASE_URL}/collections-manager`; // Replaced by GITHUB_VAA_JSON_URL

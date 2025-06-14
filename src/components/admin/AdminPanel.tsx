@@ -6,7 +6,7 @@ import {
     NftAdDetails,
     MAX_ADMIN_EDITABLE_ADS,
     USE_PLACEHOLDER_IMAGE_URL,
-    SETTINGS_API_ENDPOINT,
+    // SETTINGS_API_ENDPOINT, // Backend call removed
     VALID_ACCENT_COLORS
 } from '../../constants';
 import { AdminSettings } from '../../App'; 
@@ -134,23 +134,36 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
       twitterUserId: twitterUserId,
       ads: ads.map(ad => ({...ad})) 
     };
-    try {
-        const response = await fetch(SETTINGS_API_ENDPOINT, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(settingsToSave),
-        });
-        if (!response.ok) {
-            const errorData = await response.text();
-            throw new Error(`Failed to save settings: ${response.status} ${response.statusText}. ${errorData}`);
-        }
-        onSettingsSave(); 
-    } catch (e: any) {
-        console.error("Error saving admin settings:", e);
-        setSaveError(`Failed to save settings: ${e.message}. Please try again.`);
-    } finally {
-        setIsSaving(false);
-    }
+    
+    console.log("AdminPanel: Save button clicked. Settings to 'save' (backend disabled):", settingsToSave);
+    // Simulate save process since backend is removed
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+    
+    // This would be where the fetch call was:
+    // try {
+    //     const response = await fetch(SETTINGS_API_ENDPOINT, {
+    //         method: 'POST',
+    //         headers: { 'Content-Type': 'application/json' },
+    //         body: JSON.stringify(settingsToSave),
+    //     });
+    //     if (!response.ok) {
+    //         const errorData = await response.text();
+    //         throw new Error(`Failed to save settings: ${response.status} ${response.statusText}. ${errorData}`);
+    //     }
+    //     onSettingsSave(); 
+    // } catch (e: any) {
+    //     console.error("Error saving admin settings:", e);
+    //     setSaveError(`Failed to save settings: ${e.message}. Please try again.`);
+    // } finally {
+    //     setIsSaving(false);
+    // }
+
+    // Since backend is removed, call onSettingsSave to trigger App.tsx to reload defaults
+    // In a real app without backend, this would mean changes are only local to the component's state
+    // and lost on refresh unless persisted to localStorage (which isn't the case here for settings).
+    onSettingsSave(); // This will cause App.tsx to call loadAdminSettings(true) which now loads defaults.
+    alert("Settings 'saved' (backend functionality removed). Application will reflect defaults on next reload from App.tsx.");
+    setIsSaving(false);
   };
 
   const accentColorsForSelect: NftAdDetails['accentColor'][] = ['sky', 'fuchsia', 'emerald', 'amber', 'rose'];
@@ -167,7 +180,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
         </button>
       </div>
        <p className="text-xs text-yellow-400 mb-6 p-3 bg-yellow-900/50 rounded-md border border-yellow-700">
-        <span className="font-bold">NOTE:</span> Settings are now sent to a (hypothetical) backend. If no backend is running, saving will fail.
+        <span className="font-bold">NOTE:</span> Settings backend is disabled. Changes made here will not persist after refresh, and saving will reload default settings.
       </p>
 
       <section className="mb-8">
@@ -263,7 +276,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onLogout, onSettingsSave, curre
           className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
         >
           {isSaving && <LoadingSpinner />}
-          {isSaving ? 'Saving...' : 'Save All Settings to Server'}
+          {isSaving ? 'Saving...' : 'Save Settings (Local Effect Only)'}
         </button>
       </div>
        <a href="#/" className="mt-8 block text-center text-sm text-slate-400 hover:text-sky-300 transition-colors">

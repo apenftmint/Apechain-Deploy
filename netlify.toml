@@ -1,9 +1,0 @@
-[build]
-  command = "npm run build" # Or "yarn build" if you use Yarn
-  publish = "dist"          # Vite's default output directory. Change if your build tool outputs elsewhere (e.g., "build" for Create React App).
-  functions = "netlify/functions"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200

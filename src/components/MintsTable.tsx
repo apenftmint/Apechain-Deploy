@@ -11,6 +11,8 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
   console.log("[MintsTable Component] Rendering. Received 'mints' prop. Length:", mints.length);
   if (mints.length > 0 && mints[0]) {
     console.log("[MintsTable Component] First mint item in prop (simplified for brevity):", { txHash: mints[0].txHash, contractAddress: mints[0].contractAddress, collectionName: mints[0].collectionName, analysisStatus: mints[0].analysis?.finalStatus });
+  } else if (mints.length === 0) {
+    console.log("[MintsTable Component] Received empty 'mints' array.");
   } else if (mints.length > 0 && !mints[0]) {
     console.warn("[MintsTable Component] First mint item in prop is null or undefined, but mints array is not empty.");
   }
@@ -24,14 +26,16 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
 
   return (
     <div 
-      className="overflow-x-auto overflow-y-auto rounded-lg shadow-2xl custom-scrollbar border border-slate-700 backdrop-blur-sm bg-slate-800/30 flex-grow" 
+      className="overflow-x-auto overflow-y-auto rounded-lg shadow-2xl custom-scrollbar border border-slate-700 backdrop-blur-sm flex-grow" 
       style={{ 
-        minHeight: '550px', 
-        maxHeight: 'calc(100vh - 320px)' 
+        backgroundColor: 'rgba(128, 0, 128, 0.3)', /* AGGRESSIVE Diagnostic: purple bg for wrapper */
+        height: '600px', /* AGGRESSIVE Diagnostic: fixed height */
+        padding: '10px', /* AGGRESSIVE Diagnostic: padding */
       }}
     >
       <table className="min-w-full divide-y divide-slate-700">
-        <thead className="bg-slate-700/60 sticky top-0 z-10 backdrop-blur-md">
+        {/* <thead className="bg-slate-700/60 sticky top-0 z-10 backdrop-blur-md"> // Temporarily remove sticky for debugging */}
+        <thead className="bg-slate-700/60 z-10 backdrop-blur-md">
           <tr>
             <th scope="col" className="px-2 py-3 text-left text-xs sm:text-sm font-semibold text-slate-300 tracking-wider">No.</th>
             <th scope="col" className="px-3 py-3.5 text-left text-xs sm:text-sm font-semibold text-slate-300 tracking-wider">Date/Time Minted</th>
@@ -41,12 +45,16 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
             <th scope="col" className="px-3 py-3.5 text-center text-xs sm:text-sm font-semibold text-slate-300 tracking-wider">Links</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-700">
+        <tbody 
+          className="divide-y divide-slate-700" 
+          style={{ backgroundColor: 'rgba(255, 255, 0, 0.5)' }} /* AGGRESSIVE Diagnostic: more opaque yellow bg */
+        >
           {mints.map((mint, index) => {
             if (!mint) {
               console.error(`[MintsTable Row ${index + 1}] Mint item is null or undefined! Skipping row.`);
               return null; 
             }
+            console.log(`[MintsTable Row ${index + 1}] Processing mint: ${mint.contractAddress} - ${mint.tokenId}`);
             
             const explorerAddressUrl = `${APECHAIN_EXPLORER_URL}/address/${mint.contractAddress}`;
             const explorerTxUrl = `${APECHAIN_EXPLORER_URL}/tx/${mint.txHash}`;
@@ -59,20 +67,44 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
             const rowKey = `${mint.txHash}-${mint.logIndex}-${mint.contractAddress}-${index}`;
 
             return (
-              <tr key={rowKey} className="hover:bg-slate-700/70 transition-colors duration-150">
-                <td className="whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-slate-200 text-center">{index + 1}</td>
-                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-300">{formatTimestampToDateTime(mint.timestamp)}</td>
-                <td className="px-3 py-3 text-xs sm:text-sm max-w-[150px] truncate" title={`${collectionDisplayName} (Rep. Token ID: ${mint.tokenId})`}>
+              <tr 
+                key={rowKey} 
+                className="hover:bg-slate-700/70 transition-colors duration-150"
+                style={{ border: '3px solid red' }} /* AGGRESSIVE Diagnostic: thicker red border */
+              >
+                <td 
+                  className="whitespace-nowrap px-2 py-3 text-center" 
+                  style={{ border: '3px solid blue', minHeight: '50px', height: 'auto', color: '#00FF00', fontSize: '1.5rem', fontWeight: 'bold' }} /* AGGRESSIVE: blue border, min-height, LIME text, LARGE & BOLD */
+                >
+                  {index + 1} {/* Simplest possible content */}
+                </td>
+                <td 
+                  className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm" 
+                  style={{ border: '3px solid blue', minHeight: '50px', height: 'auto', color: '#00FF00', fontSize: '1.1rem' }}
+                >
+                  {formatTimestampToDateTime(mint.timestamp)}
+                </td>
+                <td 
+                  className="px-3 py-3 text-xs sm:text-sm max-w-[150px] truncate" 
+                  style={{ border: '3px solid blue', minHeight: '50px', height: 'auto', color: '#00FF00', fontSize: '1.1rem' }}
+                  title={`${collectionDisplayName} (Rep. Token ID: ${mint.tokenId})`}
+                >
                   {collectionDisplayName !== "Unnamed Collection" && collectionDisplayName !== "Unknown Collection" ? (
                     <span className="text-fuchsia-400 font-medium">{collectionDisplayName}</span>
                   ) : (
                     <span className="text-fuchsia-300 italic" title={mint.contractAddress}>{collectionDisplayName}</span>
                   )}
                 </td>
-                <td className={`whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-center font-semibold ${mint.isFree ? 'text-green-400' : 'text-amber-400'}`}>
+                <td 
+                  className={`whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-center font-semibold ${mint.isFree ? 'text-green-300' : 'text-amber-300'}`}
+                  style={{ border: '3px solid blue', minHeight: '50px', height: 'auto' }}
+                >
                   {mint.isFree ? 'Free' : (mint.mintPriceApe ? `${mint.mintPriceApe} APE` : 'Paid')}
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-300">
+                <td 
+                  className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm" 
+                  style={{ border: '3px solid blue', minHeight: '50px', height: 'auto', color: '#00FF00', fontSize: '1.1rem' }}
+                >
                    <a 
                     href={explorerAddressUrl} 
                     target="_blank" 
@@ -83,7 +115,10 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
                     {truncateAddress(mint.contractAddress)}
                   </a>
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-center">
+                <td 
+                  className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-center"
+                  style={{ border: '3px solid blue', minHeight: '50px', height: 'auto' }}
+                >
                   <div className="flex items-center justify-center space-x-2 sm:space-x-3">
                     <a 
                       href={explorerTxUrl}
