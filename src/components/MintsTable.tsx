@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AppTableDisplayMintData } from '../App';
+import { AppTableDisplayMintData } from '../App'; 
 import { APECHAIN_EXPLORER_URL, APECHAIN_MAGICKEDEN_COLLECTION_URL_PREFIX } from '../constants';
 
 interface MintsTableProps {
@@ -23,11 +23,11 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
   const truncateAddress = (address: string) => `${address.slice(0, 6)}...${address.slice(-4)}`;
 
   return (
-    <div
-      className="overflow-x-auto overflow-y-auto rounded-lg shadow-2xl custom-scrollbar border border-slate-700 backdrop-blur-sm bg-slate-800/30 flex-grow"
-      style={{
-        minHeight: '550px',
-        maxHeight: 'calc(100vh - 280px)'
+    <div 
+      className="overflow-x-auto rounded-lg shadow-2xl custom-scrollbar border border-slate-700 backdrop-blur-sm bg-slate-800/30 flex-grow" 
+      style={{ 
+        minHeight: '550px', 
+        maxHeight: 'calc(100vh - 320px)' 
       }}
     >
       <table className="min-w-full divide-y divide-slate-700">
@@ -41,23 +41,15 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
             <th scope="col" className="px-3 py-3.5 text-center text-xs sm:text-sm font-semibold text-slate-300 tracking-wider">Links</th>
           </tr>
         </thead>
-        {/* DIAGNOSTIC STYLING: Bright background on tbody */}
-        <tbody className="divide-y divide-slate-700 bg-yellow-500/30 border-2 border-yellow-700">
+        <tbody className="divide-y divide-slate-700">
           {mints.map((mint, index) => {
             if (!mint) {
               console.error(`[MintsTable Row ${index + 1}] Mint item is null or undefined! Skipping row.`);
               return null; 
             }
             
-            console.log(`[MintsTable Row ${index + 1}] Processing. Contract: ${mint.contractAddress}, TokenID: ${mint.tokenId}`);
+            // console.log(`[MintsTable Row ${index + 1}] Processing. Contract: ${mint.contractAddress}, TokenID: ${mint.tokenId}`); // Keep for debugging if needed
             
-            try {
-                // console.log(`[MintsTable Row ${index + 1}] Full Data (raw):`, mint);
-            } catch (e: any) {
-                console.error(`[MintsTable Row ${index + 1}] Error serializing/logging mint object for contract ${mint.contractAddress}:`, e.message);
-                console.log(`[MintsTable Row ${index + 1}] Problematic mint object structure:`, Object.keys(mint));
-            }
-
             const explorerAddressUrl = `${APECHAIN_EXPLORER_URL}/address/${mint.contractAddress}`;
             const explorerTxUrl = `${APECHAIN_EXPLORER_URL}/tx/${mint.txHash}`;
             const magicEdenCollectionUrl = `${APECHAIN_MAGICKEDEN_COLLECTION_URL_PREFIX}${mint.contractAddress}`;
@@ -69,22 +61,20 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
             const rowKey = `${mint.txHash}-${mint.logIndex}-${mint.contractAddress}-${index}`;
 
             return (
-              // DIAGNOSTIC STYLING: Border on tr
-              <tr key={rowKey} className="hover:bg-slate-700/70 transition-colors duration-150 border border-pink-500">
-                {/* DIAGNOSTIC STYLING: Border on td */}
-                <td className="whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-slate-400 text-center border border-cyan-500">{index + 1}</td>
-                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400 border border-cyan-500">{formatTimestampToDateTime(mint.timestamp)}</td>
-                <td className="px-3 py-3 text-xs sm:text-sm max-w-[150px] truncate border border-cyan-500" title={`${collectionDisplayName} (Rep. Token ID: ${mint.tokenId})`}>
+              <tr key={rowKey} className="hover:bg-slate-700/70 transition-colors duration-150">
+                <td className="whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-slate-400 text-center">{index + 1}</td>
+                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400">{formatTimestampToDateTime(mint.timestamp)}</td>
+                <td className="px-3 py-3 text-xs sm:text-sm max-w-[150px] truncate" title={`${collectionDisplayName} (Rep. Token ID: ${mint.tokenId})`}>
                   {collectionDisplayName !== "Unnamed Collection" && collectionDisplayName !== "Unknown Collection" ? (
                     <span className="text-fuchsia-400 font-medium">{collectionDisplayName}</span>
                   ) : (
                     <span className="text-fuchsia-300 italic" title={mint.contractAddress}>{collectionDisplayName}</span>
                   )}
                 </td>
-                <td className={`whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-center font-semibold border border-cyan-500 ${mint.isFree ? 'text-green-400' : 'text-amber-400'}`}>
+                <td className={`whitespace-nowrap px-2 py-3 text-xs sm:text-sm text-center font-semibold ${mint.isFree ? 'text-green-400' : 'text-amber-400'}`}>
                   {mint.isFree ? 'Free' : (mint.mintPriceApe ? `${mint.mintPriceApe} APE` : 'Paid')}
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400 border border-cyan-500">
+                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-slate-400">
                    <a 
                     href={explorerAddressUrl} 
                     target="_blank" 
@@ -95,7 +85,7 @@ const MintsTable: React.FC<MintsTableProps> = ({ mints }) => {
                     {truncateAddress(mint.contractAddress)}
                   </a>
                 </td>
-                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-center border border-cyan-500">
+                <td className="whitespace-nowrap px-3 py-3 text-xs sm:text-sm text-center">
                   <div className="flex items-center justify-center space-x-2 sm:space-x-3">
                     <a 
                       href={explorerTxUrl}

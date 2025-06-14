@@ -29,9 +29,9 @@ import {
     MARK_POPUP_SEEN_API_ENDPOINT,
     VALID_ACCENT_COLORS,
     UNIQUE_COLLECTIONS_API_ENDPOINT,
-    LOCAL_STORAGE_KEY,
-    LIVE_FREE_MINTS_CACHE_KEY,
-    LIVE_PAID_MINTS_CACHE_KEY,
+    LOCAL_STORAGE_KEY, // Still used for allTimeMints backup
+    LIVE_FREE_MINTS_CACHE_KEY, // Used for live free mints feed
+    LIVE_PAID_MINTS_CACHE_KEY,  // Used for live paid mints feed
     SOUND_ENABLED_PREFERENCE_KEY
 } from './constants';
 
@@ -90,7 +90,7 @@ const App: React.FC = () => {
   const playedNotificationForContractsRef = useRef(new Set<string>());
 
   const [currentRoute, setCurrentRoute] = useState<string>(window.location.hash || '#/');
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false); // Initialize to false, session-only
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false); // Initialize to false
 
   const [effectiveTwitterId, setEffectiveTwitterId] = useState<string>(DEFAULT_ADVERTISEMENT_TWITTER_USER_ID);
   const [effectiveAds, setEffectiveAds] = useState<NftAdDetails[]>(DEFAULT_NFT_ADVERTISEMENTS_LIST);
@@ -223,7 +223,7 @@ const App: React.FC = () => {
             fetchUniqueCollectionsTableData()
         ]);
         console.log("loadAllInitialData: All initial fetches settled.");
-        setInitialAppSetupComplete(true);
+        setInitialAppSetupComplete(true); 
         console.log("loadAllInitialData: initialAppSetupComplete SET TO TRUE.");
     };
 
@@ -242,27 +242,34 @@ const App: React.FC = () => {
 
   useEffect(() => {
     document.body.style.paddingTop = `${calculateBodyPaddingTop(effectiveTwitterId, effectiveAds)}px`;
-  }, [effectiveAds, effectiveTwitterId]);
+  }, [effectiveAds, effectiveTwitterId, currentRoute]); // Re-calculate if route changes, as config pages have different padding
 
   useEffect(() => {
     const pageId = getPageFromHash(currentRoute);
+    console.log(`[App Routing Check] Current Route: ${currentRoute}, Page ID: ${pageId}, IsAdminLoggedIn: ${isAdminLoggedIn}, InitialSetupComplete: ${initialAppSetupComplete}`);
+
+    if (!initialAppSetupComplete) {
+      console.log("[App Routing Check] Initial setup not complete. Skipping routing logic.");
+      return; 
+    }
+
     let newHashTarget: string | null = null;
 
-    if (initialAppSetupComplete) { 
-        if (pageId === CONFIG_LOGIN_PAGE_ID && isAdminLoggedIn) {
-            newHashTarget = `#/?${PAGE_QUERY_PARAM}=${CONFIG_PANEL_PAGE_ID}`;
-        } else if (pageId === CONFIG_PANEL_PAGE_ID && !isAdminLoggedIn) {
-            newHashTarget = `#/?${PAGE_QUERY_PARAM}=${CONFIG_LOGIN_PAGE_ID}`;
-        }
+    if (pageId === CONFIG_LOGIN_PAGE_ID && isAdminLoggedIn) {
+        newHashTarget = `#/?${PAGE_QUERY_PARAM}=${CONFIG_PANEL_PAGE_ID}`;
+        console.log(`[App Routing Logic] Admin logged in, on login page. Redirecting to panel: ${newHashTarget}`);
+    } else if (pageId === CONFIG_PANEL_PAGE_ID && !isAdminLoggedIn) {
+        newHashTarget = `#/?${PAGE_QUERY_PARAM}=${CONFIG_LOGIN_PAGE_ID}`;
+        console.log(`[App Routing Logic] Admin NOT logged in, on panel page. Redirecting to login: ${newHashTarget}`);
+    }
 
-        if (newHashTarget && newHashTarget !== window.location.hash) {
-            console.log(`Redirecting from ${window.location.hash} to ${newHashTarget} because initialAppSetupComplete=${initialAppSetupComplete}, isAdminLoggedIn=${isAdminLoggedIn}, pageId=${pageId}`);
-            window.location.hash = newHashTarget;
-        }
+    if (newHashTarget && newHashTarget !== window.location.hash) {
+        console.log(`[App Routing Action] Changing hash to: ${newHashTarget}`);
+        window.location.hash = newHashTarget;
     }
   }, [currentRoute, isAdminLoggedIn, initialAppSetupComplete]);
 
-  useEffect(() => { // Load from localStorage for live feeds (client-side only cache)
+  useEffect(() => { 
     try {
       const storedAllTimeMintsRaw = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (storedAllTimeMintsRaw) setAllTimeMints(JSON.parse(storedAllTimeMintsRaw).sort((a:MintData,b:MintData) => b.timestamp - a.timestamp));
@@ -304,7 +311,7 @@ const App: React.FC = () => {
         setLivePaidMints(prevMints => processMintsForLiveFeed(prevMints, LIVE_PAID_MINTS_CACHE_KEY));
     }
 
-    setAllTimeMints(prevAllMints => { // For localStorage backup of all detected mints
+    setAllTimeMints(prevAllMints => { 
       let updatedPersistedMints = [newMint, ...prevAllMints];
       const uniqueEventsMap = new Map<string, MintData>();
       updatedPersistedMints.forEach(mint => {
@@ -349,6 +356,7 @@ const App: React.FC = () => {
 
   const handleSetupComplete = useCallback(() => {
     setIsLoading(false); 
+    console.log("Blockchain service setup complete. isLoading set to false.");
   }, []);
 
   useEffect(() => { 
@@ -362,13 +370,15 @@ const App: React.FC = () => {
         setProviderOk(false); setIsLoading(false);
       }
     };
-    initService();
+    if (initialAppSetupComplete) { 
+        initService();
+    }
     return () => {
       blockchainService.stopListeningForMints();
       if (speechSynthesis.speaking) speechSynthesis.cancel();
       if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
     };
-  }, [handleNewMint, handleError, handleSetupComplete]);
+  }, [handleNewMint, handleError, handleSetupComplete, initialAppSetupComplete]);
 
  useEffect(() => { 
     if (isInitialLoadRef.current && initialAppSetupComplete && !isLoading && !isFetchingTableData && !isAdminSettingsLoading && !isSeenPopupsLoading) {
@@ -453,15 +463,19 @@ const App: React.FC = () => {
 
 
   const handleAdminLoginSuccess = () => {
+    console.log("[handleAdminLoginSuccess] Called. Setting isAdminLoggedIn to true.");
+    localStorage.setItem("isAdminLoggedInApeChain", "true"); // Persist login for refresh
     setIsAdminLoggedIn(true);
   };
 
   const handleAdminLogout = () => {
+    console.log("[handleAdminLogout] Called. Setting isAdminLoggedIn to false.");
+    localStorage.removeItem("isAdminLoggedInApeChain"); // Clear persisted login
     setIsAdminLoggedIn(false);
   };
 
   const handleAdminSettingsSave = () => {
-    loadAdminSettings(true);
+    loadAdminSettings(true); 
     alert("Admin settings save attempt sent to server! Changes will be reflected if successful.");
   }
 
@@ -482,27 +496,29 @@ const App: React.FC = () => {
         tableSectionContent = (
             <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
                 <LoadingSpinner />
-                <p className="mt-3">
+                <p className="mt-3 text-slate-300">
                     {initialAppSetupComplete ? "Refreshing collections data..." : "Loading unique collections..."}
                 </p>
             </div>
         );
     } else if (tableDataError) {
         tableSectionContent = (
-            <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow bg-red-900/30 border border-red-700 rounded-md p-4">
-                <p className="text-red-300 font-semibold text-lg">Failed to Load Collections</p>
-                <p className="text-slate-300 text-sm mt-2">{tableDataError}</p>
+            <div className="w-full max-w-4xl mx-auto text-center p-4 bg-red-800/60 rounded-lg shadow-lg border border-red-600 my-2 backdrop-blur-sm text-sm">
+                <h2 className="font-semibold text-red-200 mb-1">Failed to Load Collections</h2>
+                <p className="text-slate-200">{tableDataError}</p>
             </div>
         );
     } else if (currentTableDisplayDataLength > 0) {
         tableSectionContent = <div className="flex-grow"><MintsTable mints={currentTableDisplayData} /></div>;
-    } else { // Not fetching, no error, but no displayable data
+    } else { 
         tableSectionContent = (
             <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
+                <p className="text-slate-300">
                 {tableData.length === 0 
-                    ? <p>No collections from the last 24 hours found (via API).</p>
-                    : <p>No collections match the current "{tableFilter}" filter.</p>
+                    ? "No collections from the last 24 hours found (via API)."
+                    : `No collections match the current "${tableFilter}" filter.`
                 }
+                </p>
             </div>
         );
     }
@@ -527,7 +543,7 @@ const App: React.FC = () => {
         <NewMintPopup key={mint.popupId} mint={mint} onClose={() => handlePopupClose(mint.popupId)} />
       ))}
 
-      <main className="w-full p-4 md:p-8 flex-grow">
+      <main className="w-full p-4 md:p-8 flex-grow max-w-8xl mx-auto">
         {!providerOk && !isLoading && (
           <div className="w-full max-w-4xl mx-auto text-center p-6 bg-red-800/50 rounded-xl shadow-2xl border border-red-600 mb-6 backdrop-blur-sm">
             <h2 className="text-2xl font-semibold text-red-300 mb-3">Connection Error</h2>
@@ -553,13 +569,13 @@ const App: React.FC = () => {
           </div>
         )}
         {!isLoading && !error && !rateLimitWarning && displayedLiveFreeMints.length === 0 && displayedLivePaidMints.length === 0 && providerOk && (
-          <div className="w-full max-w-4xl mx-auto text-center p-6 bg-slate-800/70 rounded-xl shadow-2xl mb-6 border border-slate-700 backdrop-blur-sm">
+           <div className="w-full max-w-4xl mx-auto text-center p-6 bg-slate-800/70 rounded-xl shadow-2xl mb-6 border border-slate-700 backdrop-blur-sm">
             <h2 className="text-2xl font-semibold text-sky-400 mb-3">Listening for Live Mints</h2>
             <p className="text-slate-300">No live mints detected yet.</p>
           </div>
         )}
-        { !isLoading && ( // Show live feeds even if table is still loading its initial data
-          <div className="w-full max-w-8xl mx-auto flex flex-col md:flex-row md:space-x-6 lg:space-x-8 mt-4">
+        {initialAppSetupComplete && !isLoading && (
+          <div className="w-full flex flex-col md:flex-row md:space-x-6 lg:space-x-8 mt-4">
             <div className="w-full md:w-2/5 lg:w-1/3 flex flex-col space-y-8 mb-8 md:mb-0">
               <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
                 <h2 className="text-3xl font-semibold text-center md:text-left text-green-400 mb-4 drop-shadow-[0_1px_1px_rgba(0,255,0,0.3)]">
@@ -588,30 +604,37 @@ const App: React.FC = () => {
             </div>
             <div className="w-full md:w-3/5 lg:w-2/3">
               <section className="p-4 sm:p-6 bg-slate-800/70 rounded-xl shadow-2xl h-full border border-slate-700 backdrop-blur-sm flex flex-col">
-                <div className="flex flex-col sm:flex-row justify-between items-start mb-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
                   <h2 className="text-2xl sm:text-3xl font-semibold text-teal-400 mb-3 sm:mb-0">Unique Collections <span className="text-sm text-slate-400">(Last 24h, from API)</span></h2>
-                  {(tableFilter === 'free' || tableFilter === 'all') && ( 
-                      <button onClick={toggleSound} className={`px-3 py-2 text-xs sm:text-sm rounded-lg shadow-lg ${soundEnabled ? 'bg-red-500' : 'bg-sky-500'} text-white`}>
+                  {(tableFilter === 'free' || tableFilter === 'all') && providerOk && ( 
+                      <button onClick={toggleSound} className={`px-3 py-2 text-xs sm:text-sm rounded-lg shadow-lg transition-colors ${soundEnabled ? 'bg-red-500 hover:bg-red-600' : 'bg-sky-500 hover:bg-sky-600'} text-white`}>
                           Sound Alerts: {soundEnabled ? 'ON' : 'OFF'}
                       </button>
                   )}
                 </div>
-                <div className="mb-4 flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
-                    <div className="flex space-x-2">
-                        {(['all', 'free', 'paid'] as const).map(f => (
-                            <button key={f} onClick={() => setTableFilter(f)} className={`px-3 py-1.5 text-xs rounded-md ${tableFilter === f ? 'bg-fuchsia-600' : 'bg-slate-600'}`}>
-                                {f.charAt(0).toUpperCase() + f.slice(1)}
-                            </button>
-                        ))}
+                {providerOk && (
+                  <>
+                    <div className="mb-4 flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
+                        <div className="flex space-x-2">
+                            {(['all', 'free', 'paid'] as const).map(f => (
+                                <button key={f} onClick={() => setTableFilter(f)} className={`px-3 py-1.5 text-xs rounded-md transition-colors ${tableFilter === f ? 'bg-fuchsia-600 text-white' : 'bg-slate-600 hover:bg-slate-500 text-slate-200'}`}>
+                                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex items-center space-x-2 text-xs">
+                            <span className="text-slate-300">Show:</span>
+                            {[10, 20, 100].map(s => (
+                                <button key={s} onClick={() => setTableItemsPerPage(s)} className={`px-2.5 py-1 rounded-md transition-colors ${tableItemsPerPage === s ? 'bg-sky-600 text-white' : 'bg-slate-600 hover:bg-slate-500 text-slate-200'}`}>{s}</button>
+                            ))}
+                        </div>
                     </div>
-                    <div className="flex items-center space-x-2 text-xs">
-                        <span className="text-slate-300">Show:</span>
-                        {[10, 20, 100].map(s => (
-                            <button key={s} onClick={() => setTableItemsPerPage(s)} className={`px-2.5 py-1 rounded-md ${tableItemsPerPage === s ? 'bg-sky-600' : 'bg-slate-600'}`}>{s}</button>
-                        ))}
-                    </div>
-                </div>
-                {tableSectionContent}
+                    {tableSectionContent}
+                  </>
+                )}
+                 {!providerOk && !isLoading && (
+                    <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow"><p className="text-slate-400">Blockchain service not connected. Table data unavailable.</p></div>
+                )}
               </section>
             </div>
           </div>
@@ -633,7 +656,7 @@ const App: React.FC = () => {
   const showInitializingAppMessage = (message = "Initializing ApeChain Mint Tracker...") => (
     <div className="flex-grow flex flex-col items-center justify-center text-slate-300 p-8">
       <LoadingSpinner />
-      <p className="ml-3 text-lg">{message}</p>
+      <p className="ml-3 mt-4 text-lg">{message}</p>
     </div>
   );
 
@@ -642,19 +665,19 @@ const App: React.FC = () => {
     let loadingMessage = "Initializing ApeChain Mint Tracker...";
     if (isAdminSettingsLoading && !isSeenPopupsLoading && !isFetchingTableData && !isLoading) loadingMessage = "Loading site configuration...";
     else if (isSeenPopupsLoading && !isFetchingTableData && !isLoading) loadingMessage = "Loading popup history...";
-    else if (isFetchingTableData && !isLoading ) loadingMessage = "Loading unique collections...";
+    else if (isFetchingTableData && !isLoading ) loadingMessage = "Loading unique collections data...";
     else if (isLoading) loadingMessage = "Initializing blockchain connection...";
     contentToRender = showInitializingAppMessage(loadingMessage);
   } else if (isAdminLoggedIn) {
       if (currentPageId === CONFIG_PANEL_PAGE_ID) {
           contentToRender = (
             <Suspense fallback={showInitializingAppMessage("Loading Admin Panel...")}>
-              <AdminPanel
-                  onLogout={handleAdminLogout}
-                  onSettingsSave={handleAdminSettingsSave}
-                  currentAds={effectiveAds}
-                  currentTwitterId={effectiveTwitterId}
-              />
+                <AdminPanel
+                    onLogout={handleAdminLogout}
+                    onSettingsSave={handleAdminSettingsSave}
+                    currentAds={effectiveAds}
+                    currentTwitterId={effectiveTwitterId}
+                />
             </Suspense>
           );
       } else if (currentPageId === CONFIG_LOGIN_PAGE_ID) { 
@@ -666,7 +689,7 @@ const App: React.FC = () => {
       if (currentPageId === CONFIG_LOGIN_PAGE_ID) {
           contentToRender = (
             <Suspense fallback={showInitializingAppMessage("Loading Admin Login...")}>
-              <AdminLogin onLoginSuccess={handleAdminLoginSuccess} />
+                <AdminLogin onLoginSuccess={handleAdminLoginSuccess} />
             </Suspense>
           );
       } else if (currentPageId === CONFIG_PANEL_PAGE_ID) { 
@@ -678,17 +701,21 @@ const App: React.FC = () => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-slate-100 flex flex-col items-center selection:bg-fuchsia-500 selection:text-white flex-grow">
-      <header className="app-main-header flex justify-between items-center px-4">
-          <div></div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-fuchsia-500 to-indigo-600 pb-1 drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 text-slate-100 flex flex-col items-center selection:bg-fuchsia-500 selection:text-white">
+      <header className="fixed top-0 left-0 right-0 z-[100] bg-slate-900/80 backdrop-blur-md flex justify-between items-center px-4 sm:px-6 py-3 shadow-lg" style={{height: '60px'}}> {/* Matches body padding-top */}
+          <div></div> {/* Spacer for justify-content: space-between */}
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-fuchsia-500 to-indigo-600 pb-1 drop-shadow-[0_2px_2px_rgba(0,0,0,0.5)]">
             {APP_TITLE}
           </h1>
-          <a href={`#/?${PAGE_QUERY_PARAM}=${CONFIG_LOGIN_PAGE_ID}`} className="text-sm text-slate-300 hover:text-sky-400 transition-colors">
+          <a href={`#/?${PAGE_QUERY_PARAM}=${CONFIG_LOGIN_PAGE_ID}`} className="text-xs sm:text-sm text-slate-300 hover:text-sky-400 transition-colors px-2 py-1 rounded hover:bg-slate-700/50">
             Site Config
           </a>
       </header>
-      {contentToRender}
+      
+      <div className="flex-grow w-full flex flex-col" style={{ paddingTop: '60px' }}> {/* This ensures content starts below fixed header */}
+        {contentToRender}
+      </div>
+
     </div>
   );
 };

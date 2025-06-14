@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ADMIN_USERNAME, ADMIN_PASSWORD } from '../../constants'; // ADMIN_SESSION_KEY removed
+import { ADMIN_USERNAME, ADMIN_PASSWORD } from '../../constants'; // ADMIN_SESSION_KEY removed from imports here as it's not directly used for setting localstorage in this component
 
 interface AdminLoginProps {
   onLoginSuccess: () => void;
@@ -24,9 +24,10 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
     }
 
     // WARNING: This is a mock login for demonstration purposes ONLY.
+    // Storing and comparing plaintext passwords on the client-side is highly insecure.
     // Real applications MUST use a secure backend for authentication.
     if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-        // localStorage.setItem(ADMIN_SESSION_KEY, 'true'); // Removed: Session is not stored in localStorage
+        // localStorage.setItem(ADMIN_SESSION_KEY, 'true'); // This responsibility moves to App.tsx onLoginSuccess
         onLoginSuccess();
     } else {
         setError('Invalid username or password.');
@@ -35,14 +36,13 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
   };
 
   return (
-    <div className="flex-grow flex flex-col items-center justify-center p-4 bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-xl mx-auto max-w-md w-full">
-      {/* Removed mt-8 and min-h for flex-grow to handle centering */}
-      <div className="w-full"> {/* Inner container for form content */}
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-120px)] p-4 sm:p-6 md:p-8 w-full"> {/* Adjusted min-height and padding */}
+      <div className="w-full max-w-md p-6 sm:p-8 bg-slate-800/70 backdrop-blur-sm rounded-xl shadow-2xl border border-slate-700">
         <h2 className="text-3xl font-bold text-sky-400 mb-8 text-center">Admin Login</h2>
-        <p className="text-xs text-yellow-400 mb-4 p-2 bg-yellow-900/50 rounded-md border border-yellow-700">
-          <span className="font-bold">DEMO ONLY:</span> This is a mock admin login. Do not use this pattern in production due to security risks. Credentials are hardcoded.
+        <p className="text-xs text-yellow-400 mb-4 p-2 bg-yellow-900/50 rounded-md border border-yellow-700 text-center">
+          <span className="font-bold">DEMO ONLY:</span> This is a mock admin login. Credentials are hardcoded.
         </p>
-        <form onSubmit={handleSubmit} className="w-full space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-slate-300">
               Username
@@ -71,18 +71,18 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
               autoComplete="current-password"
             />
           </div>
-          {error && <p className="text-sm text-red-400 bg-red-900/50 p-2 rounded-md border border-red-700">{error}</p>}
+          {error && <p className="text-sm text-red-400 bg-red-900/50 p-2 rounded-md border border-red-700 text-center">{error}</p>}
           <div>
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-sky-500 disabled:opacity-50 transition-colors"
+              className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-800 focus:ring-sky-500 disabled:opacity-50 transition-colors"
             >
               {isLoading ? 'Logging in...' : 'Login'}
             </button>
           </div>
         </form>
-        <a href="#/" className="mt-6 block text-center text-sm text-slate-400 hover:text-sky-300 transition-colors">
+        <a href="#/" className="mt-6 text-sm text-slate-400 hover:text-sky-300 transition-colors block text-center">
           &larr; Back to Main Site
         </a>
       </div>
