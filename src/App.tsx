@@ -201,7 +201,7 @@ const App: React.FC = () => {
         const data: AppTableDisplayMintData[] = await response.json();
         console.log(`fetchUniqueCollectionsTableData: Received ${data.length} collections from API.`);
         if (data.length > 0) {
-            console.log("First collection item from API:", JSON.stringify(data[0], null, 2));
+            // console.log("First collection item from API:", JSON.stringify(data[0], null, 2)); // Keep this if needed for deep debug
         }
         setTableData(data.sort((a,b) => b.timestamp - a.timestamp));
     } catch (e: any) {
@@ -374,8 +374,6 @@ const App: React.FC = () => {
     };
   }, [handleNewMint, handleError, handleSetupComplete]);
 
- // Client-side table data preparation useEffect and analysisStatusMap useEffect have been REMOVED.
-
  useEffect(() => { // Popup and sound notification logic
     if (isInitialLoadRef.current && initialAppSetupComplete && !isLoading && !isFetchingTableData && !isAdminSettingsLoading && !isSeenPopupsLoading) {
       isInitialLoadRef.current = false; // Initial setup is complete
@@ -385,7 +383,6 @@ const App: React.FC = () => {
     if (isInitialLoadRef.current || !initialAppSetupComplete || isSeenPopupsLoading || isAdminSettingsLoading || isFetchingTableData || isLoading) {
         if (!userInteracted && speechSynthesis.speaking) speechSynthesis.cancel();
         if (speechTimeoutRef.current) clearTimeout(speechTimeoutRef.current);
-        // console.debug("Popup useEffect: Skipping due to ongoing setup/loading.", {isInitialLoadRef: isInitialLoadRef.current, initialAppSetupComplete, isSeenPopupsLoading, isAdminSettingsLoading, isFetchingTableData, isLoading});
         return;
     }
     console.log("Popup useEffect: Proceeding with notifications. tableData length:", tableData.length);
@@ -393,7 +390,6 @@ const App: React.FC = () => {
     let notificationProcessed = false;
     for (const mint of tableData) {
         if (playedNotificationForContractsRef.current.has(mint.contractAddress) || notificationProcessed) continue;
-        // console.log(`Popup useEffect: Checking mint ${mint.contractAddress} - isFree: ${mint.isFree}, analysis status: ${mint.analysis?.finalStatus}`);
 
         if (mint.isFree && mint.analysis && mint.analysis.finalStatus === 'OK') {
             console.log(`Popup useEffect: Triggering popup for ${mint.contractAddress}`);
@@ -446,38 +442,30 @@ const App: React.FC = () => {
     if (!newSoundEnabled && speechSynthesis.speaking) speechSynthesis.cancel();
   };
 
-  const getFilteredAndPaginatedTableData = () => {
-    // console.log("[getFilteredAndPaginatedTableData] Called. tableData length:", tableData.length, "Current filter:", tableFilter, "Items per page:", tableItemsPerPage);
+  const getFilteredAndPaginatedTableData = useCallback(() => {
     let filteredData = tableData;
     if (tableFilter === 'free') {
         filteredData = tableData.filter(mint => mint.isFree);
-        // console.log("[getFilteredAndPaginatedTableData] After 'free' filter, length:", filteredData.length);
     } else if (tableFilter === 'paid') {
         filteredData = tableData.filter(mint => !mint.isFree);
-        // console.log("[getFilteredAndPaginatedTableData] After 'paid' filter, length:", filteredData.length);
     }
     const paginatedData = filteredData.slice(0, tableItemsPerPage);
-    // console.log("[getFilteredAndPaginatedTableData] After pagination, returning length:", paginatedData.length);
-    if (paginatedData.length > 0 && tableData.length > 0) { // Check tableData.length to prevent error on initial empty
-        console.log("[getFilteredAndPaginatedTableData] First item of paginated data:", JSON.stringify(paginatedData[0], null, 2));
+    if (paginatedData.length > 0 && tableData.length > 0) {
+        // console.log("[getFilteredAndPaginatedTableData] First item of paginated data:", JSON.stringify(paginatedData[0], null, 2));
     }
     return paginatedData;
-  };
+  }, [tableData, tableFilter, tableItemsPerPage]);
 
   const handleAdminLoginSuccess = () => {
     setIsAdminLoggedIn(true);
-    // No longer need to reload settings here as panel takes current state
-    // If desired, could trigger a re-fetch for settings after login, but panel uses props now
   };
 
   const handleAdminLogout = () => {
     setIsAdminLoggedIn(false);
-    // No explicit action needed for settings here as panel will re-render based on isAdminLoggedIn
-    // and App.tsx uses default settings when not logged in or settings not found.
   };
 
   const handleAdminSettingsSave = () => {
-    loadAdminSettings(true); // Re-fetch settings from backend after save attempt
+    loadAdminSettings(true);
     alert("Admin settings save attempt sent to server! Changes will be reflected if successful.");
   }
 
@@ -487,160 +475,164 @@ const App: React.FC = () => {
   const visibleAds = effectiveAds.filter(ad => ad.active);
 
 
-  const renderMainContent = () => (
-    <>
-      { (isAdminSettingsLoading && !initialAppSetupComplete) && (
-        <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-[200]">
-            <LoadingSpinner /><p className="ml-3 text-slate-300">Loading site configuration...</p>
-        </div>
-      )}
-      { adminSettingsError && (
-          <div className="w-full max-w-4xl mx-auto text-center p-3 bg-red-800/60 rounded-lg shadow-lg border border-red-600 my-2 backdrop-blur-sm text-sm">
-              <p className="text-slate-200">{adminSettingsError}</p>
-          </div>
-      )}
-       { (isSeenPopupsLoading && !initialAppSetupComplete) && (
-        <div className="fixed inset-x-0 top-1/2 transform -translate-y-1/2 bg-slate-900/50 flex items-center justify-center z-[190] p-2 text-sm">
-            <LoadingSpinner /><p className="ml-2 text-slate-300">Loading popup history...</p>
-        </div>
-      )}
-      { seenPopupsError && (
-          <div className="w-full max-w-4xl mx-auto text-center p-2 bg-yellow-800/60 rounded-lg shadow-lg border border-yellow-600 my-1 backdrop-blur-sm text-xs">
-              <p className="text-slate-200">{seenPopupsError}</p>
-          </div>
-      )}
+  const renderMainContent = () => {
+    const processedTableDataForDisplay = getFilteredAndPaginatedTableData();
 
-      {(!isAdminSettingsLoading && ADVERTISEMENT_TEXT && effectiveTwitterId) && <AdvertisementBanner text={ADVERTISEMENT_TEXT} link={activeBannerLink} />}
-      {(!isAdminSettingsLoading && visibleAds.length > 0) && <NftAdvertisementPoster adList={visibleAds} />}
-
-      {activePopups.map(mint => (
-        <NewMintPopup key={mint.popupId} mint={mint} onClose={() => handlePopupClose(mint.popupId)} />
-      ))}
-
-      <main className="w-full p-4 md:p-8 flex-grow">
-        {!providerOk && !isLoading && (
-          <div className="w-full max-w-4xl mx-auto text-center p-6 bg-red-800/50 rounded-xl shadow-2xl border border-red-600 mb-6 backdrop-blur-sm">
-            <h2 className="text-2xl font-semibold text-red-300 mb-3">Connection Error</h2>
-            <p className="text-slate-300">{error || "Could not connect to the ApeChain network."}</p>
+    return (
+      <>
+        { (isAdminSettingsLoading && !initialAppSetupComplete) && (
+          <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center z-[200]">
+              <LoadingSpinner /><p className="ml-3 text-slate-300">Loading site configuration...</p>
           </div>
         )}
-        {isLoading && ( // This isLoading is for the blockchainService connection
-          <div className="flex flex-col items-center justify-center text-center p-6 w-full max-w-4xl mx-auto mb-6">
-            <LoadingSpinner />
-            <p className="mt-4 text-lg text-slate-300">{providerOk ? "Connecting to ApeChain for live mints..." : "Initializing blockchain connection..."}</p>
-          </div>
-        )}
-        {!isLoading && error && (
-          <div className="w-full max-w-4xl mx-auto text-center p-6 bg-red-800/50 rounded-xl shadow-2xl border border-red-600 mb-6 backdrop-blur-sm">
-            <h2 className="text-2xl font-semibold text-red-300 mb-3">Error Listening for Mints</h2>
-            <p className="text-slate-300">{error}</p>
-          </div>
-        )}
-        {!isLoading && rateLimitWarning && !error && (
-          <div className="w-full max-w-4xl mx-auto text-center p-4 bg-yellow-700/40 rounded-xl shadow-2xl border border-yellow-500 mb-6 backdrop-blur-sm">
-            <h2 className="text-xl font-semibold text-yellow-300 mb-2">Live Mint Network Status</h2>
-            <p className="text-slate-300 text-sm">{rateLimitWarning}</p>
-          </div>
-        )}
-        {!isLoading && !error && !rateLimitWarning && displayedLiveFreeMints.length === 0 && displayedLivePaidMints.length === 0 && providerOk && (
-          <div className="w-full max-w-4xl mx-auto text-center p-6 bg-slate-800/70 rounded-xl shadow-2xl mb-6 border border-slate-700 backdrop-blur-sm">
-            <h2 className="text-2xl font-semibold text-sky-400 mb-3">Listening for Live Mints</h2>
-            <p className="text-slate-300">No live mints detected yet.</p>
-          </div>
-        )}
-        { !isLoading && ( // Only render main content layout if blockchain service is not in its initial loading state
-          <div className="w-full max-w-8xl mx-auto flex flex-col md:flex-row md:space-x-6 lg:space-x-8 mt-4">
-            <div className="w-full md:w-2/5 lg:w-1/3 flex flex-col space-y-8 mb-8 md:mb-0">
-              <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
-                <h2 className="text-3xl font-semibold text-center md:text-left text-green-400 mb-4 drop-shadow-[0_1px_1px_rgba(0,255,0,0.3)]">
-                  Live Free Mints <span className="text-sm text-slate-400">(Latest {MAX_DISPLAY_MINTS_FOR_LIVE_FEED})</span>
-                </h2>
-                {displayedLiveFreeMints.length > 0 ? (
-                  <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar" style={{maxHeight: 'calc(70vh - 120px)'}}>
-                    {displayedLiveFreeMints.map((mint) => <MintCard key={`${mint.txHash}-${mint.logIndex}-free`} mint={mint} />)}
-                  </div>
-                ) : providerOk && !error && (
-                  <div className="p-6 h-40 flex items-center justify-center border border-slate-700 rounded-xl"> <p className="text-slate-400 text-sm">Listening for free mints...</p> </div>
-                )}
-              </div>
-              <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
-                <h2 className="text-3xl font-semibold text-center md:text-left text-amber-400 mb-4 drop-shadow-[0_1px_1px_rgba(255,193,7,0.3)]">
-                  Live Paid Mints <span className="text-sm text-slate-400">(Latest {MAX_DISPLAY_MINTS_FOR_LIVE_FEED})</span>
-                </h2>
-                {displayedLivePaidMints.length > 0 ? (
-                  <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar" style={{maxHeight: 'calc(70vh - 120px)'}}>
-                    {displayedLivePaidMints.map((mint) => <MintCard key={`${mint.txHash}-${mint.logIndex}-paid`} mint={mint} />)}
-                  </div>
-                ) : providerOk && !error && (
-                  <div className="p-6 h-40 flex items-center justify-center border border-slate-700 rounded-xl"> <p className="text-slate-400 text-sm">Listening for paid mints...</p> </div>
-                )}
-              </div>
+        { adminSettingsError && (
+            <div className="w-full max-w-4xl mx-auto text-center p-3 bg-red-800/60 rounded-lg shadow-lg border border-red-600 my-2 backdrop-blur-sm text-sm">
+                <p className="text-slate-200">{adminSettingsError}</p>
             </div>
-            <div className="w-full md:w-3/5 lg:w-2/3">
-              <section className="p-4 sm:p-6 bg-slate-800/70 rounded-xl shadow-2xl h-full border border-slate-700 backdrop-blur-sm flex flex-col">
-                <div className="flex flex-col sm:flex-row justify-between items-start mb-4">
-                  <h2 className="text-2xl sm:text-3xl font-semibold text-teal-400 mb-3 sm:mb-0">Unique Collections <span className="text-sm text-slate-400">(Last 24h, from API)</span></h2>
-                  {tableFilter === 'free' && (
-                      <button onClick={toggleSound} className={`px-3 py-2 text-xs sm:text-sm rounded-lg shadow-lg ${soundEnabled ? 'bg-red-500' : 'bg-sky-500'} text-white`}>
-                          Sound Alerts: {soundEnabled ? 'ON' : 'OFF'}
-                      </button>
+        )}
+         { (isSeenPopupsLoading && !initialAppSetupComplete) && (
+          <div className="fixed inset-x-0 top-1/2 transform -translate-y-1/2 bg-slate-900/50 flex items-center justify-center z-[190] p-2 text-sm">
+              <LoadingSpinner /><p className="ml-2 text-slate-300">Loading popup history...</p>
+          </div>
+        )}
+        { seenPopupsError && (
+            <div className="w-full max-w-4xl mx-auto text-center p-2 bg-yellow-800/60 rounded-lg shadow-lg border border-yellow-600 my-1 backdrop-blur-sm text-xs">
+                <p className="text-slate-200">{seenPopupsError}</p>
+            </div>
+        )}
+
+        {(!isAdminSettingsLoading && ADVERTISEMENT_TEXT && effectiveTwitterId) && <AdvertisementBanner text={ADVERTISEMENT_TEXT} link={activeBannerLink} />}
+        {(!isAdminSettingsLoading && visibleAds.length > 0) && <NftAdvertisementPoster adList={visibleAds} />}
+
+        {activePopups.map(mint => (
+          <NewMintPopup key={mint.popupId} mint={mint} onClose={() => handlePopupClose(mint.popupId)} />
+        ))}
+
+        <main className="w-full p-4 md:p-8 flex-grow">
+          {!providerOk && !isLoading && (
+            <div className="w-full max-w-4xl mx-auto text-center p-6 bg-red-800/50 rounded-xl shadow-2xl border border-red-600 mb-6 backdrop-blur-sm">
+              <h2 className="text-2xl font-semibold text-red-300 mb-3">Connection Error</h2>
+              <p className="text-slate-300">{error || "Could not connect to the ApeChain network."}</p>
+            </div>
+          )}
+          {isLoading && ( // This isLoading is for the blockchainService connection
+            <div className="flex flex-col items-center justify-center text-center p-6 w-full max-w-4xl mx-auto mb-6">
+              <LoadingSpinner />
+              <p className="mt-4 text-lg text-slate-300">{providerOk ? "Connecting to ApeChain for live mints..." : "Initializing blockchain connection..."}</p>
+            </div>
+          )}
+          {!isLoading && error && (
+            <div className="w-full max-w-4xl mx-auto text-center p-6 bg-red-800/50 rounded-xl shadow-2xl border border-red-600 mb-6 backdrop-blur-sm">
+              <h2 className="text-2xl font-semibold text-red-300 mb-3">Error Listening for Mints</h2>
+              <p className="text-slate-300">{error}</p>
+            </div>
+          )}
+          {!isLoading && rateLimitWarning && !error && (
+            <div className="w-full max-w-4xl mx-auto text-center p-4 bg-yellow-700/40 rounded-xl shadow-2xl border border-yellow-500 mb-6 backdrop-blur-sm">
+              <h2 className="text-xl font-semibold text-yellow-300 mb-2">Live Mint Network Status</h2>
+              <p className="text-slate-300 text-sm">{rateLimitWarning}</p>
+            </div>
+          )}
+          {!isLoading && !error && !rateLimitWarning && displayedLiveFreeMints.length === 0 && displayedLivePaidMints.length === 0 && providerOk && (
+            <div className="w-full max-w-4xl mx-auto text-center p-6 bg-slate-800/70 rounded-xl shadow-2xl mb-6 border border-slate-700 backdrop-blur-sm">
+              <h2 className="text-2xl font-semibold text-sky-400 mb-3">Listening for Live Mints</h2>
+              <p className="text-slate-300">No live mints detected yet.</p>
+            </div>
+          )}
+          { !isLoading && ( // Only render main content layout if blockchain service is not in its initial loading state
+            <div className="w-full max-w-8xl mx-auto flex flex-col md:flex-row md:space-x-6 lg:space-x-8 mt-4">
+              <div className="w-full md:w-2/5 lg:w-1/3 flex flex-col space-y-8 mb-8 md:mb-0">
+                <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
+                  <h2 className="text-3xl font-semibold text-center md:text-left text-green-400 mb-4 drop-shadow-[0_1px_1px_rgba(0,255,0,0.3)]">
+                    Live Free Mints <span className="text-sm text-slate-400">(Latest {MAX_DISPLAY_MINTS_FOR_LIVE_FEED})</span>
+                  </h2>
+                  {displayedLiveFreeMints.length > 0 ? (
+                    <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar" style={{maxHeight: 'calc(70vh - 120px)'}}>
+                      {displayedLiveFreeMints.map((mint) => <MintCard key={`${mint.txHash}-${mint.logIndex}-free`} mint={mint} />)}
+                    </div>
+                  ) : providerOk && !error && (
+                    <div className="p-6 h-40 flex items-center justify-center border border-slate-700 rounded-xl"> <p className="text-slate-400 text-sm">Listening for free mints...</p> </div>
                   )}
                 </div>
-                <div className="mb-4 flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
-                    <div className="flex space-x-2">
-                        {(['all', 'free', 'paid'] as const).map(f => (
-                            <button key={f} onClick={() => setTableFilter(f)} className={`px-3 py-1.5 text-xs rounded-md ${tableFilter === f ? 'bg-fuchsia-600' : 'bg-slate-600'}`}>
-                                {f.charAt(0).toUpperCase() + f.slice(1)}
-                            </button>
-                        ))}
+                <div className="bg-slate-800/50 p-4 rounded-xl shadow-xl border border-slate-700 backdrop-blur-sm">
+                  <h2 className="text-3xl font-semibold text-center md:text-left text-amber-400 mb-4 drop-shadow-[0_1px_1px_rgba(255,193,7,0.3)]">
+                    Live Paid Mints <span className="text-sm text-slate-400">(Latest {MAX_DISPLAY_MINTS_FOR_LIVE_FEED})</span>
+                  </h2>
+                  {displayedLivePaidMints.length > 0 ? (
+                    <div className="space-y-6 overflow-y-auto pr-2 custom-scrollbar" style={{maxHeight: 'calc(70vh - 120px)'}}>
+                      {displayedLivePaidMints.map((mint) => <MintCard key={`${mint.txHash}-${mint.logIndex}-paid`} mint={mint} />)}
                     </div>
-                    <div className="flex items-center space-x-2 text-xs">
-                        <span className="text-slate-300">Show:</span>
-                        {[10, 20, 100].map(s => (
-                            <button key={s} onClick={() => setTableItemsPerPage(s)} className={`px-2.5 py-1 rounded-md ${tableItemsPerPage === s ? 'bg-sky-600' : 'bg-slate-600'}`}>{s}</button>
-                        ))}
-                    </div>
+                  ) : providerOk && !error && (
+                    <div className="p-6 h-40 flex items-center justify-center border border-slate-700 rounded-xl"> <p className="text-slate-400 text-sm">Listening for paid mints...</p> </div>
+                  )}
                 </div>
-                {isFetchingTableData && !initialAppSetupComplete && ( // Show initial loading for table
-                    <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                        <LoadingSpinner /><p className="mt-3">Loading unique collections from API...</p>
-                    </div>
-                )}
-                 {isFetchingTableData && initialAppSetupComplete && ( // Show refresh loading for table
-                    <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                        <LoadingSpinner /><p className="mt-3">Refreshing collections data...</p>
-                    </div>
-                )}
-                {!isFetchingTableData && tableDataError && (
-                    <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow bg-red-900/30 border border-red-700 rounded-md p-4">
-                        <p className="text-red-300 font-semibold text-lg">Failed to Load Collections</p>
-                        <p className="text-slate-300 text-sm mt-2">{tableDataError}</p>
-                    </div>
-                )}
-                {!isFetchingTableData && getFilteredAndPaginatedTableData().length > 0 && (
-                  <div className="flex-grow"><MintsTable mints={getFilteredAndPaginatedTableData()} /></div>
-                )}
-                {!isFetchingTableData && !tableDataError && getFilteredAndPaginatedTableData().length === 0 && (
-                  <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
-                    {tableData.length === 0
-                        ? <p>No collections from the last 24 hours found (via API). This could be due to an API error, no recent data, or all data being older than 24 hours.</p>
-                        : <p>No collections match the current "{tableFilter}" filter from the available data ({tableData.length} total from API).</p>
-                    }
+              </div>
+              <div className="w-full md:w-3/5 lg:w-2/3">
+                <section className="p-4 sm:p-6 bg-slate-800/70 rounded-xl shadow-2xl h-full border border-slate-700 backdrop-blur-sm flex flex-col">
+                  <div className="flex flex-col sm:flex-row justify-between items-start mb-4">
+                    <h2 className="text-2xl sm:text-3xl font-semibold text-teal-400 mb-3 sm:mb-0">Unique Collections <span className="text-sm text-slate-400">(Last 24h, from API)</span></h2>
+                    {tableFilter === 'free' && (
+                        <button onClick={toggleSound} className={`px-3 py-2 text-xs sm:text-sm rounded-lg shadow-lg ${soundEnabled ? 'bg-red-500' : 'bg-sky-500'} text-white`}>
+                            Sound Alerts: {soundEnabled ? 'ON' : 'OFF'}
+                        </button>
+                    )}
                   </div>
-                )}
-              </section>
+                  <div className="mb-4 flex flex-col sm:flex-row justify-between items-center space-y-2 sm:space-y-0">
+                      <div className="flex space-x-2">
+                          {(['all', 'free', 'paid'] as const).map(f => (
+                              <button key={f} onClick={() => setTableFilter(f)} className={`px-3 py-1.5 text-xs rounded-md ${tableFilter === f ? 'bg-fuchsia-600' : 'bg-slate-600'}`}>
+                                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                              </button>
+                          ))}
+                      </div>
+                      <div className="flex items-center space-x-2 text-xs">
+                          <span className="text-slate-300">Show:</span>
+                          {[10, 20, 100].map(s => (
+                              <button key={s} onClick={() => setTableItemsPerPage(s)} className={`px-2.5 py-1 rounded-md ${tableItemsPerPage === s ? 'bg-sky-600' : 'bg-slate-600'}`}>{s}</button>
+                          ))}
+                      </div>
+                  </div>
+                  {isFetchingTableData && !initialAppSetupComplete && ( // Show initial loading for table
+                      <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
+                          <LoadingSpinner /><p className="mt-3">Loading unique collections from API...</p>
+                      </div>
+                  )}
+                   {isFetchingTableData && initialAppSetupComplete && ( // Show refresh loading for table
+                      <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
+                          <LoadingSpinner /><p className="mt-3">Refreshing collections data...</p>
+                      </div>
+                  )}
+                  {!isFetchingTableData && tableDataError && (
+                      <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow bg-red-900/30 border border-red-700 rounded-md p-4">
+                          <p className="text-red-300 font-semibold text-lg">Failed to Load Collections</p>
+                          <p className="text-slate-300 text-sm mt-2">{tableDataError}</p>
+                      </div>
+                  )}
+                  {!isFetchingTableData && !tableDataError && processedTableDataForDisplay.length > 0 && (
+                    <div className="flex-grow"><MintsTable mints={processedTableDataForDisplay} /></div>
+                  )}
+                  {!isFetchingTableData && !tableDataError && processedTableDataForDisplay.length === 0 && (
+                    <div className="text-center py-8 h-full flex flex-col items-center justify-center flex-grow">
+                      {tableData.length === 0
+                          ? <p>No collections from the last 24 hours found (via API). This could be due to an API error, no recent data, or all data being older than 24 hours.</p>
+                          : <p>No collections match the current "{tableFilter}" filter from the available data ({tableData.length} total from API).</p>
+                      }
+                    </div>
+                  )}
+                </section>
+              </div>
             </div>
+          )}
+        </main>
+        <footer className="mt-auto text-center text-slate-500 text-xs w-full max-w-7xl mx-auto py-6 border-t border-slate-700/50">
+          <div className="flex justify-between items-center px-4 sm:px-0">
+              <p>&copy; {new Date().getFullYear()} {APP_TITLE}</p>
+              <LiveVisitorsCounter />
           </div>
-        )}
-      </main>
-      <footer className="mt-auto text-center text-slate-500 text-xs w-full max-w-7xl mx-auto py-6 border-t border-slate-700/50">
-        <div className="flex justify-between items-center px-4 sm:px-0">
-            <p>&copy; {new Date().getFullYear()} {APP_TITLE}</p>
-            <LiveVisitorsCounter />
-        </div>
-      </footer>
-    </>
-  );
+        </footer>
+      </>
+    );
+  }; // End of renderMainContent
 
   const currentPageId = getPageFromHash(currentRoute);
   let contentToRender;

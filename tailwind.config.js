@@ -9,6 +9,3 @@ export default {
   },
   plugins: [],
 }
-
-// postcss.config.js
-
